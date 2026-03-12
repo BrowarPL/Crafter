@@ -113,6 +113,25 @@ public class CrafterHireQuestion extends CrafterQuestionExtension {
                 }
                 Creature crafter = CrafterAIData.createNewCrafter(responder,
                         name, sex, crafterType, skillCap, priceModifier, loadedSkills);
+
+                // ==========================================
+                // INIEKCJA WYGLĄDU I UBIORU
+                try {
+                    // 1. Zmiana modelu na domyślnego kupca z gry (klient sam nałoży mu fartuch i odpowiedni szkielet)
+                    crafter.setModelName("model.creature.humanoid.human.trader");
+
+                    // 2. Klonowanie twarzy od gracza (gwarantuje w 100% poprawną strukturę bitową skóry i zapobiega "białemu duchowi"!)
+                    long validFace = responder.getFace();
+                    java.lang.reflect.Field faceField = org.gotti.wurmunlimited.modloader.ReflectionUtil.getField(crafter.getStatus().getClass(), "face");
+                    org.gotti.wurmunlimited.modloader.ReflectionUtil.setPrivateField(crafter.getStatus(), faceField, validFace);
+
+                    // 3. Wymuszenie aktualizacji dla silnika graficznego
+                    crafter.refreshVisible();
+                } catch (Exception ex) {
+                    logger.warning("Nie udalo sie ustawic wygladu rzemieslnika: " + ex.getMessage());
+                }
+                // ==========================================
+
                 contract.setData(crafter.getWurmId());
                 Village v = responder.getCitizenVillage();
                 if (v != null) {
