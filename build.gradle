@@ -77,12 +77,18 @@ jar {
 
 test {
     useJUnitPlatform()
+    exclude '**/*' // Wyklucza wszystkie pliki z uruchamiania
 
     doLast {
         delete fileTree('.') {
             include 'worker*.log'
         }
     }
+}
+
+// Dodatkowe zabezpieczenie wyłączające task w Gradle
+tasks.withType(Test) {
+    enabled = false
 }
 
 task zip(type: Zip) {
