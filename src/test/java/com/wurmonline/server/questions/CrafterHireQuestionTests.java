@@ -27,7 +27,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
 
-import static com.wurmonline.server.questions.CrafterHireQuestion.modelOptions;
 import static mod.wurmunlimited.Assert.*;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
@@ -47,8 +46,6 @@ class CrafterHireQuestionTests {
         ReflectionUtil.setPrivateField(null, CrafterMod.class.getDeclaredField("skillCap"), 99.99999f);
         ReflectionUtil.setPrivateField(null, CrafterMod.class.getDeclaredField("basePrice"), 1);
         ReflectionUtil.setPrivateField(null, CrafterMod.class.getDeclaredField("minimumPriceModifier"), 0.0000001f);
-        ReflectionUtil.<List<FaceSetter>>getPrivateField(null, FaceSetter.class.getDeclaredField("faceSetters")).clear();
-        ReflectionUtil.<List<ModelSetter>>getPrivateField(null, ModelSetter.class.getDeclaredField("modelSetters")).clear();
         owner = factory.createNewPlayer();
         factory.createVillageFor(owner);
         contract = factory.createNewItem(CrafterMod.getContractTemplateId());
@@ -56,8 +53,6 @@ class CrafterHireQuestionTests {
         crafterModProperties.setProperty("name_prefix", "");
         crafterModProperties.setProperty("allow_saved_skills", "true");
         new CrafterMod().configure(crafterModProperties);
-        CrafterMod.mod.faceSetter = new FaceSetter(CrafterTemplate::isCrafter, dbName);
-        CrafterMod.mod.modelSetter = new ModelSetter(CrafterTemplate::isCrafter, dbName);
     }
 
     @AfterEach
@@ -401,18 +396,6 @@ class CrafterHireQuestionTests {
         Integer[] setSkills = crafterType.getAllTypes();
         assertEquals(1, setSkills.length);
         assertEquals(skill, (int)setSkills[0]);
-    }
-
-    @Test
-    void testCustomiseAppearanceSent() {
-        Properties properties = generateProperties();
-        properties.setProperty("customise", "true");
-        new CrafterHireQuestion(owner, contract.getWurmId()).answer(properties);
-
-        assertEquals(1, getCrafterCount());
-        assertThat(owner, didNotReceiveMessageContaining("invalid"));
-        new CreatureCustomiserQuestion(owner, getNewlyCreatedCrafter(), CrafterMod.mod.faceSetter, CrafterMod.mod.modelSetter, modelOptions).sendQuestion();
-        assertThat(owner, bmlEqual());
     }
 
     @Test

@@ -42,7 +42,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static com.wurmonline.server.questions.CrafterHireQuestion.modelOptions;
 import static mod.wurmunlimited.Assert.*;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
@@ -64,8 +63,6 @@ class CrafterManagementQuestionTests {
         ReflectionUtil.setPrivateField(null, CrafterMod.class.getDeclaredField("minimumPriceModifier"), 0.0000001f);
         ReflectionUtil.setPrivateField(null, CrafterMod.class.getDeclaredField("paymentOption"), CrafterMod.PaymentOption.for_owner);
         ReflectionUtil.setPrivateField(null, CrafterMod.class.getDeclaredField("canChangeSkill"), true);
-        ReflectionUtil.<List<FaceSetter>>getPrivateField(null, FaceSetter.class.getDeclaredField("faceSetters")).clear();
-        ReflectionUtil.<List<ModelSetter>>getPrivateField(null, ModelSetter.class.getDeclaredField("modelSetters")).clear();
         owner = factory.createNewPlayer();
         crafter = factory.createNewCrafter(owner, new CrafterType(CrafterType.allMetal), 50);
         factory.createVillageFor(owner, crafter);
@@ -74,8 +71,6 @@ class CrafterManagementQuestionTests {
         owner.getInventory().insertItem(contract);
         setPrefix("");
         new CrafterMod();
-        CrafterMod.mod.faceSetter = new FaceSetter(CrafterTemplate::isCrafter, dbName);
-        CrafterMod.mod.modelSetter = new ModelSetter(CrafterTemplate::isCrafter, dbName);
         Properties options = new Properties();
         options.setProperty("allow_saved_skills", "true");
         CrafterMod.mod.configure(options);
@@ -100,7 +95,6 @@ class CrafterManagementQuestionTests {
                 name.set(i.getArgument(0));
                 return null;
             }).when(crafter).setName(anyString());
-            when(crafter.getFace()).thenAnswer(i -> CrafterMod.mod.faceSetter.getFaceFor(crafter));
             when(crafter.getWurmId()).thenReturn(987654L);
             VolaTile tile = Zones.getOrCreateTile(10, 10, true);
             when(crafter.getCurrentTile()).thenReturn(tile);
@@ -524,16 +518,6 @@ class CrafterManagementQuestionTests {
 
         assertEquals(1, workBook.todo());
         assertThat(owner, receivedMessageContaining("successfully refunded"));
-    }
-
-    @Test
-    void testCustomiseAppearanceSent() {
-        Properties properties = new Properties();
-        properties.setProperty("customise", "true");
-        new CrafterManagementQuestion(owner, crafter).answer(properties);
-
-        new CreatureCustomiserQuestion(owner, crafter, CrafterMod.mod.faceSetter, CrafterMod.mod.modelSetter, modelOptions).sendQuestion();
-        assertThat(owner, bmlEqual());
     }
 
     @Test

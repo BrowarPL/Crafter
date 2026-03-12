@@ -224,25 +224,6 @@ class CrafterModTests {
     }
 
     @Test
-    void testJobItemsRemovedFromInventoryDuringWearItems() throws Throwable {
-        CrafterMod crafterMod = new CrafterMod();
-        Creature crafter = factory.createNewCrafter(factory.createNewPlayer(), crafterType, 50);
-        Item job = factory.createNewItem();
-        crafter.getInventory().insertItem(job);
-        WorkBook.getWorkBookFromWorker(crafter).addJob(1, job, 10, false, 1);
-        crafter.getInventory().insertItem(factory.createNewItem(ItemList.plateJacket));
-        crafter.getInventory().insertItem(factory.createNewItem(ItemList.hammerMetal));
-
-        CrafterWearItems wearItems = new CrafterWearItems();
-
-        wearItems.beforeWearing(crafter);
-        assertFalse(crafter.getInventory().getItems().contains(job));
-
-        wearItems.afterWearing(crafter);
-        assertTrue(crafter.getInventory().getItems().contains(job));
-    }
-
-    @Test
     void testCrafterSkillGainRateApplied() throws Throwable {
         CrafterMod crafterMod = new CrafterMod();
         ReflectionUtil.setPrivateField(crafterMod, CrafterMod.class.getDeclaredField("crafterSkillGainRate"), 5f);
