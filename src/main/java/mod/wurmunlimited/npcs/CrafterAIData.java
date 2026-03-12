@@ -631,8 +631,15 @@ public class CrafterAIData extends CreatureAIData {
         VolaTile tile = owner.getCurrentTile();
         Creature crafter = Creature.doNew(CrafterTemplate.getTemplateId(), (float)(tile.getTileX() << 2) + 2.0F, (float)(tile.getTileY() << 2) + 2.0F, 180.0F, owner.getLayer(), name, sex, owner.getKingdomId());
 
+        // Assign the correct pre-baked merchant model based on gender.
+        // These models have baked-in textures and clothes, preventing the "white texture" bug.
+        if (sex == 0) { // Male
+            crafter.setModelName("model.creature.humanoid.salesman.male.free");
+        } else { // Female
+            crafter.setModelName("model.creature.humanoid.salesman.female.free");
+        }
+
         // Cleaning up. Hook may not be run after other mods have adjusted the createShop method.
-        // This is where our clothes were being destroyed!
         for (Item item : crafter.getInventory().getItemsAsArray()) {
             Items.destroyItem(item.getWurmId());
         }
@@ -653,38 +660,8 @@ public class CrafterAIData extends CreatureAIData {
         }
         crafter.getCreatureAIData().setCreature(crafter);
 
-        // ==========================================
-        // APPEARANCE AND CLOTHING INJECTION
-        // (Placed SAFELY after the cleanup loop)
-        try {
-            // 1. Copy face from the owner to ensure a 100% valid bitmask (fixes the white texture bug)
-            long validFace = owner.getFace();
-            if (validFace == 0L) {
-                validFace = 123456789L; // Safe fallback face mask
-            }
-            java.lang.reflect.Field faceField = com.wurmonline.server.creatures.CreatureStatus.class.getDeclaredField("face");
-            faceField.setAccessible(true);
-            faceField.set(crafter.getStatus(), validFace);
-
-            // 2. Add Merchant clothing to inventory (113 = Merchant shirt/apron, 114 = Merchant trousers, 7 = Shoes)
-            int[] clothes = new int[] { 113, 114, 7 };
-            for (int clothId : clothes) {
-                Item cloth = com.wurmonline.server.items.ItemFactory.createItem(clothId, 50.0f, "");
-                crafter.getInventory().insertItem(cloth);
-            }
-
-            // 3. Force the crafter to equip the items
-            java.lang.reflect.Method wearItemsMethod = com.wurmonline.server.creatures.Creature.class.getDeclaredMethod("wearItems");
-            wearItemsMethod.setAccessible(true);
-            wearItemsMethod.invoke(crafter);
-
-            // 4. CRITICAL: Send update packet to client! Without this, the model stays white!
-            crafter.refreshVisible();
-
-        } catch (Exception ex) {
-            Logger.getLogger(CrafterAIData.class.getName()).warning("Failed to set crafter appearance: " + ex.getMessage());
-        }
-        // ==========================================
+        // Force the client to render the newly assigned model
+        crafter.refreshVisible();
 
         return crafter;
     }

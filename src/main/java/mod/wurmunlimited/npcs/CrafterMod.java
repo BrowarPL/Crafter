@@ -480,33 +480,6 @@ public class CrafterMod implements WurmServerMod, PreInitable, Initable, Configu
                 "(Ljava/lang/String;Lcom/wurmonline/server/creatures/Creature;Lcom/wurmonline/server/creatures/Creature;IZ)V",
                 () -> this::broadcastAction);
 
-        // 1. Enforce the base player model
-        manager.registerHook("com.wurmonline.server.creatures.Creature",
-                "getModelName",
-                "()Ljava/lang/String;",
-                () -> (o, method, args) -> {
-                    com.wurmonline.server.creatures.Creature crafter = (com.wurmonline.server.creatures.Creature) o;
-                    if (CrafterTemplate.isCrafter(crafter)) {
-                        return "model.creature.humanoid.human.player";
-                    }
-                    return method.invoke(o, args);
-                });
-
-        // 2. Generates a unique and correct skin texture, which eliminates the white mesh problem
-        manager.registerHook("com.wurmonline.server.creatures.Creature",
-                "getFace",
-                "()J",
-                () -> (o, method, args) -> {
-                    com.wurmonline.server.creatures.Creature crafter = (com.wurmonline.server.creatures.Creature) o;
-                    if (CrafterTemplate.isCrafter(crafter)) {
-                        // We create a stable face based on the craftsman ID, so a given NPC will always look the same
-                        java.util.Random rnd = new java.util.Random(crafter.getWurmId());
-                        long validFace = rnd.nextLong();
-                        return validFace != 0 ? validFace : 123456789L;
-                    }
-                    return method.invoke(o, args);
-                });
-
         // Integrated hook to support proper item return when NPCs are destroyed
         manager.registerHook("com.wurmonline.server.creatures.Creature", "destroy", "()V", () -> (o, method, args) -> {
             Creature crafter = (Creature)o;
