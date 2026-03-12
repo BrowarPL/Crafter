@@ -480,6 +480,33 @@ public class CrafterMod implements WurmServerMod, PreInitable, Initable, Configu
                 "(Ljava/lang/String;Lcom/wurmonline/server/creatures/Creature;Lcom/wurmonline/server/creatures/Creature;IZ)V",
                 () -> this::broadcastAction);
 
+        // 1. Zapewnia prawidłowy model humanoidalny zamiast białego bloku
+        manager.registerHook("com.wurmonline.server.creatures.Creature",
+                "getModelName",
+                "()Ljava/lang/String;",
+                () -> (o, method, args) -> {
+                    com.wurmonline.server.creatures.Creature crafter = (com.wurmonline.server.creatures.Creature) o;
+                    if (CrafterTemplate.isCrafter(crafter)) {
+                        return "model.creature.humanoid.human.trader";
+                    }
+                    return method.invoke(o, args);
+                });
+
+        // 2. Generuje unikalną i prawidłową teksturę skóry, co usuwa problem białej siatki
+        manager.registerHook("com.wurmonline.server.creatures.Creature",
+                "getFace",
+                "()J",
+                () -> (o, method, args) -> {
+                    com.wurmonline.server.creatures.Creature crafter = (com.wurmonline.server.creatures.Creature) o;
+                    if (CrafterTemplate.isCrafter(crafter)) {
+                        // Tworzymy stabilną twarz na podstawie ID rzemieślnika, więc dany NPC zawsze będzie wyglądał tak samo
+                        java.util.Random rnd = new java.util.Random(crafter.getWurmId());
+                        long validFace = rnd.nextLong();
+                        return validFace != 0 ? validFace : 123456789L;
+                    }
+                    return method.invoke(o, args);
+                });
+
         // Zintegrowany hook obsługujący prawidłowe zwracanie przedmiotów przy zniszczeniu NPC
         manager.registerHook("com.wurmonline.server.creatures.Creature", "destroy", "()V", () -> (o, method, args) -> {
             Creature crafter = (Creature)o;
