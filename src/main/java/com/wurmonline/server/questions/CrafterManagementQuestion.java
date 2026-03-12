@@ -23,7 +23,6 @@ import java.io.IOException;
 import java.util.Properties;
 
 import static com.wurmonline.server.creatures.CreaturePackageCaller.saveCreatureName;
-import static com.wurmonline.server.questions.CrafterHireQuestion.modelOptions;
 
 public class CrafterManagementQuestion extends CrafterQuestionExtension {
     private final Player responder;
@@ -93,8 +92,6 @@ public class CrafterManagementQuestion extends CrafterQuestionExtension {
 
         if (wasSelected("dismiss")) {
             dismiss();
-        } else if (wasSelected("customise")) {
-            new CreatureCustomiserQuestion(responder, crafter, CrafterMod.mod.faceSetter, CrafterMod.mod.modelSetter, modelOptions).sendQuestion();
         } else if (wasSelected("stop")) {
             try {
                 WorkBook workBook = WorkBook.getWorkBookFromWorker(crafter);
@@ -182,32 +179,31 @@ public class CrafterManagementQuestion extends CrafterQuestionExtension {
             WorkBook workBook = data.getWorkBook();
 
             String bml = new BMLBuilder(id)
-                                 .harray(b -> b.label("Name: " + getPrefix()).entry("name", getNameWithoutPrefix(crafter.getName()), CrafterMod.maxNameLength))
-                                 .table(new String[] { "Skill", "Current", "Max" }, workBook.getCrafterType().getSkillsFor(crafter),
-                                         (skill, b) -> b.label(skill.getName()).label(String.format("%.2f", skill.getKnowledge())).label(Float.toString(workBook.getSkillCap())))
-                                 .newLine()
-                                 .text("Current jobs - " + workBook.todo())
-                                 .text("Awaiting collection - " + workBook.done())
-                                 .If(!workBook.getCrafterType().needsForge(),
-                                         b -> b.text("Forge - Not needed"),
-                                         b -> b.If(workBook.isForgeAssigned(),
-                                                 b2 -> b2.text("Forge - Assigned"),
-                                                 b2 -> b2.text("Forge - Not Assigned").error())
-                                         )
-                                 .If(CrafterMod.getPaymentOption() == CrafterMod.PaymentOption.for_owner,
-                                         b -> b.text("Money to collect - " + (crafter.getShop().getMoney() == 0 ? "Nothing" : new Change(crafter.getShop().getMoney()).getChangeShortString())))
-                                 .If(CrafterMod.canUsePriceModifier(),
-                                         b -> b.harray(b2 -> b2.label("Price Modifier: ").entry("price_modifier", Float.toString(shop.getPriceModifier()), 4)))
-                                 .newLine()
-                                 .harray(b -> b.button("Send").spacer()
-                                               .button("customise", "Appearance").spacer()
-                                               .If(responder.getCitizenVillage() != crafter.getCitizenVillage(), b2 -> b2.button("invite", "Invite to settlement").spacer()))
-                                 .harray(b -> b.If(CrafterMod.canChangeSkill(), b2 -> b2.button("skills", "Modify skills").spacer())
-                                               .button("restrict", "Restrict Materials").spacer()
-                                               .button("block", "Block Items").spacer()
-                                               .If(workBook.todo() > 0, b2 -> b2.button("stop", "Stop current job").confirm("Stop current job.", "Are you sure you wish to stop the current job?  This will refund the order and return the item to the customer.").spacer()))
-                                 .harray(b -> b.button("dismiss", "Dismiss").confirm("You are about to dismiss " + crafter.getName() + ".", "Do you really want to do that?"))
-                                 .build();
+                    .harray(b -> b.label("Name: " + getPrefix()).entry("name", getNameWithoutPrefix(crafter.getName()), CrafterMod.maxNameLength))
+                    .table(new String[] { "Skill", "Current", "Max" }, workBook.getCrafterType().getSkillsFor(crafter),
+                            (skill, b) -> b.label(skill.getName()).label(String.format("%.2f", skill.getKnowledge())).label(Float.toString(workBook.getSkillCap())))
+                    .newLine()
+                    .text("Current jobs - " + workBook.todo())
+                    .text("Awaiting collection - " + workBook.done())
+                    .If(!workBook.getCrafterType().needsForge(),
+                            b -> b.text("Forge - Not needed"),
+                            b -> b.If(workBook.isForgeAssigned(),
+                                    b2 -> b2.text("Forge - Assigned"),
+                                    b2 -> b2.text("Forge - Not Assigned").error())
+                    )
+                    .If(CrafterMod.getPaymentOption() == CrafterMod.PaymentOption.for_owner,
+                            b -> b.text("Money to collect - " + (crafter.getShop().getMoney() == 0 ? "Nothing" : new Change(crafter.getShop().getMoney()).getChangeShortString())))
+                    .If(CrafterMod.canUsePriceModifier(),
+                            b -> b.harray(b2 -> b2.label("Price Modifier: ").entry("price_modifier", Float.toString(shop.getPriceModifier()), 4)))
+                    .newLine()
+                    .harray(b -> b.button("Send").spacer()
+                            .If(responder.getCitizenVillage() != crafter.getCitizenVillage(), b2 -> b2.button("invite", "Invite to settlement").spacer()))
+                    .harray(b -> b.If(CrafterMod.canChangeSkill(), b2 -> b2.button("skills", "Modify skills").spacer())
+                            .button("restrict", "Restrict Materials").spacer()
+                            .button("block", "Block Items").spacer()
+                            .If(workBook.todo() > 0, b2 -> b2.button("stop", "Stop current job").confirm("Stop current job.", "Are you sure you wish to stop the current job?  This will refund the order and return the item to the customer.").spacer()))
+                    .harray(b -> b.button("dismiss", "Dismiss").confirm("You are about to dismiss " + crafter.getName() + ".", "Do you really want to do that?"))
+                    .build();
 
             getResponder().getCommunicator().sendBml(300, 400, false, true, bml, 200, 200, 200, title);
         }

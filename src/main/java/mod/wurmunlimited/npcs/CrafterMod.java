@@ -43,8 +43,6 @@ public class CrafterMod implements WurmServerMod, PreInitable, Initable, Configu
     private static final Logger logger = Logger.getLogger(CrafterMod.class.getName());
     public static final String dbName = "crafter.db";
     public static CrafterMod mod;
-    public FaceSetter faceSetter;
-    public ModelSetter modelSetter;
     private static final Random faceRandom = new Random();
     public static final int maxNameLength = 50;
     static final byte MAIL_TYPE_CRAFTER = 30;
@@ -437,13 +435,11 @@ public class CrafterMod implements WurmServerMod, PreInitable, Initable, Configu
                 "()Lcom/wurmonline/server/creatures/TradeHandler;",
                 () -> this::getTradeHandler);
 
-        // Listen for messages.
         manager.registerHook("com.wurmonline.server.creatures.CreatureCommunicator",
                 "sendNormalServerMessage",
                 "(Ljava/lang/String;)V",
                 () -> this::logMessages);
 
-        // Block forge opening if assigned to a crafter.
         manager.registerHook("com.wurmonline.server.behaviours.BehaviourDispatcher",
                 "action",
                 "(Lcom/wurmonline/server/creatures/Creature;Lcom/wurmonline/server/creatures/Communicator;JJS)V",
@@ -484,10 +480,9 @@ public class CrafterMod implements WurmServerMod, PreInitable, Initable, Configu
                 "(Ljava/lang/String;Lcom/wurmonline/server/creatures/Creature;Lcom/wurmonline/server/creatures/Creature;IZ)V",
                 () -> this::broadcastAction);
 
-        FaceSetter.init(manager);
-        ModelSetter.init(manager, new CrafterWearItems());
-        DestroyHandler.addListener(creature -> {
-            Creature crafter = (Creature)creature;
+        // Zintegrowany hook obsługujący prawidłowe zwracanie przedmiotów przy zniszczeniu NPC
+        manager.registerHook("com.wurmonline.server.creatures.Creature", "destroy", "()V", () -> (o, method, args) -> {
+            Creature crafter = (Creature)o;
             if (CrafterTemplate.isCrafter(crafter)) {
                 try {
                     WorkBook workBook = WorkBook.getWorkBookFromWorker(crafter);
@@ -501,23 +496,29 @@ public class CrafterMod implements WurmServerMod, PreInitable, Initable, Configu
                         }
                     });
                     Shop shop = Economy.getEconomy().getShop(crafter);
-                    long ownerId = shop.getOwnerId();
-                    Creature owner = Creatures.getInstance().getCreature(ownerId);
-                    for (Item item : owner.getInventory().getItems()) {
-                        if (item.getTemplateId() == contractTemplateId && item.getData() == crafter.getWurmId()) {
-                            item.setData(-1);
-                            break;
+                    if (shop != null) {
+                        long ownerId = shop.getOwnerId();
+                        Creature owner = Creatures.getInstance().getCreatureOrNull(ownerId);
+                        if (owner != null && owner.getInventory() != null) {
+                            for (Item item : owner.getInventory().getItems()) {
+                                if (item.getTemplateId() == contractTemplateId && item.getData() == crafter.getWurmId()) {
+                                    item.setData(-1);
+                                    break;
+                                }
+                            }
                         }
+                        shop.delete();
                     }
-                    shop.delete();
                 } catch (WorkBook.NoWorkBookOnWorker e) {
                     logger.warning("Could not find workbook when destroying crafter.");
                     e.printStackTrace();
-                } catch (NoSuchCreatureException e) {
+                } catch (Exception e) {
                     e.printStackTrace();
                 }
             }
+            return method.invoke(o, args);
         });
+
         ModCreatures.init();
         ModCreatures.addCreature(new CrafterTemplate());
     }
@@ -559,9 +560,6 @@ public class CrafterMod implements WurmServerMod, PreInitable, Initable, Configu
 
     @Override
     public void onServerStarted() {
-        faceSetter = new FaceSetter(CrafterTemplate::isCrafter, dbName);
-        modelSetter = new ModelSetter(CrafterTemplate::isCrafter, dbName);
-
         ModActions.registerAction(new AssignAction(contractTemplateId));
         ModActions.registerAction(new TradeAction());
         ModActions.registerAction(new CrafterContractAction(contractTemplateId));
@@ -571,9 +569,6 @@ public class CrafterMod implements WurmServerMod, PreInitable, Initable, Configu
         }
         new PlaceCrafterAction();
         PlaceNpcMenu.register();
-        CrafterCanGiveRemove can = new CrafterCanGiveRemove();
-        CustomiserPlayerGiveAction.register(CrafterTemplate::isCrafter, can);
-        CustomiserPlayerRemoveAction.register(CrafterTemplate::isCrafter, can);
 
         try {
             Class<?> ServiceHandler = Class.forName("mod.wurmunlimited.npcs.CrafterAI");
