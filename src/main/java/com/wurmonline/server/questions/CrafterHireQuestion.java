@@ -24,7 +24,6 @@ import mod.wurmunlimited.npcs.db.CrafterDatabase;
 import java.util.*;
 
 public class CrafterHireQuestion extends CrafterQuestionExtension {
-    static final ModelOption[] modelOptions = new ModelOption[] { ModelOption.HUMAN, ModelOption.TRADER, ModelOption.CUSTOM };
     private final SkillsBML skillsBML;
 
     public CrafterHireQuestion(Creature aResponder, long contract) {
@@ -120,10 +119,6 @@ public class CrafterHireQuestion extends CrafterQuestionExtension {
                     v.addCitizen(crafter, v.getRoleForStatus(VillageRole.ROLE_CITIZEN));
                 }
                 logger.info(responder.getName() + " created a crafter: " + crafter);
-
-                if (wasSelected("customise")) {
-                    new CreatureCustomiserQuestion(responder, crafter, CrafterMod.mod.faceSetter, CrafterMod.mod.modelSetter, modelOptions).sendQuestion();
-                }
             } catch (Exception e) {
                 responder.getCommunicator().sendAlertServerMessage("An error occurred in the rifts of the void. The crafter was not created.");
                 e.printStackTrace();
@@ -181,8 +176,6 @@ public class CrafterHireQuestion extends CrafterQuestionExtension {
                 .text("Gender:")
                 .radio("gender", "male", "Male", responder.getSex() == (byte)0)
                 .radio("gender", "female", "Female", responder.getSex() == (byte)1)
-                .newLine()
-                .checkbox("customise" ,"Open appearance customiser when done?", true)
                 .newLine()
                 .harray(b -> b.button("Send"))
                 .build();
