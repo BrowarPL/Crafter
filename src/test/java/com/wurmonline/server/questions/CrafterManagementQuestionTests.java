@@ -496,8 +496,8 @@ class CrafterManagementQuestionTests {
         assertThat(owner, receivedMessageContaining("successfully refunded"));
         assertTrue(item.isMailed());
         assertEquals(2, mod.wurmunlimited.npcs.MailTestHelper.getSize());
-        Item one = Items.getItem(mail.get(0).itemId);
-        Item two = Items.getItem(mail.get(1).itemId);
+        Item one = Items.getItem(mod.wurmunlimited.npcs.MailTestHelper.getItemId(0));
+        Item two = Items.getItem(mod.wurmunlimited.npcs.MailTestHelper.getItemId(1));
         assertEquals(player.getWurmId(), mod.wurmunlimited.npcs.MailTestHelper.getOwnerId(0));
         assertEquals(player.getWurmId(), mod.wurmunlimited.npcs.MailTestHelper.getOwnerId(1));
 

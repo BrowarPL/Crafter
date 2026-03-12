@@ -340,7 +340,7 @@ public class CrafterGMSetSkillLevelsQuestionTests {
         new CrafterGMSetSkillLevelsQuestion(owner, crafter).answer(properties);
 
         assertFalse(crafter.getInventory().getItems().contains(jobItem));
-        assertTrue(WurmMail.allMail.stream().anyMatch((m) -> m.itemId == jobItem.getWurmId() && m.ownerId == owner.getWurmId()));
+        assertTrue(mod.wurmunlimited.npcs.MailTestHelper.hasMail(jobItem.getWurmId(), owner.getWurmId()));
         assertThat(owner, didNotReceiveMessageContaining("still has some jobs"));
     }
 
@@ -359,7 +359,7 @@ public class CrafterGMSetSkillLevelsQuestionTests {
         new CrafterGMSetSkillLevelsQuestion(owner, crafter).answer(properties);
 
         assertTrue(crafter.getInventory().getItems().contains(jobItem));
-        assertFalse(WurmMail.allMail.stream().anyMatch((m) -> m.itemId == jobItem.getWurmId() && m.ownerId == owner.getWurmId()));
+        assertFalse(mod.wurmunlimited.npcs.MailTestHelper.hasMail(jobItem.getWurmId(), owner.getWurmId()));
         assertThat(owner, didNotReceiveMessageContaining("still has some jobs"));
     }
 }

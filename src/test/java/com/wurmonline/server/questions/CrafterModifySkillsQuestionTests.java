@@ -339,7 +339,7 @@ class CrafterModifySkillsQuestionTests {
         new CrafterModifySkillsQuestion(owner, crafter).answer(properties);
 
         assertFalse(crafter.getInventory().getItems().contains(jobItem));
-        assertTrue(WurmMail.allMail.stream().anyMatch((m) -> m.itemId == jobItem.getWurmId() && m.ownerId == owner.getWurmId()));
+        assertTrue(mod.wurmunlimited.npcs.MailTestHelper.hasMail(jobItem.getWurmId(), owner.getWurmId()));
         assertThat(owner, didNotReceiveMessageContaining("still has some jobs"));
     }
 
