@@ -50,22 +50,49 @@ public class CrafterDatabase {
     }
 
     private static void execute(Execute execute) throws SQLException {
-        Connection db = null;
-        try {
-            if (dbString.isEmpty())
-                dbString = "jdbc:sqlite:" + Constants.dbHost + "/sqlite/" + CrafterMod.dbName;
-            if (!created) {
-                init();
-            }
-            db = DriverManager.getConnection(dbString);
-            execute.run(db);
-        } finally {
+        int maxRetries = 10;
+        long retryDelayMs = 200L; // 200ms x 10 prób = 2 sekundy całkowitego okna na odblokowanie DB
+
+        for (int attempt = 1; attempt <= maxRetries; attempt++) {
+            Connection db = null;
             try {
-                if (db != null)
-                    db.close();
-            } catch (SQLException e1) {
-                logger.warning("Could not close connection to database.");
-                e1.printStackTrace();
+                if (dbString.isEmpty()) {
+                    dbString = "jdbc:sqlite:" + Constants.dbHost + "/sqlite/" + CrafterMod.dbName;
+                }
+                if (!created) {
+                    init();
+                }
+
+                db = DriverManager.getConnection(dbString);
+                execute.run(db);
+
+                // Jeśli wykonanie doszło do tego miejsca, operacja się powiodła. Przerywamy pętlę.
+                return;
+            } catch (SQLException e) {
+                // Jeśli to była ostatnia próba, rzucamy krytyczny błąd wyżej
+                if (attempt == maxRetries) {
+                    logger.severe("CrafterDatabase critical fail after " + maxRetries + " attempts: " + e.getMessage());
+                    throw e;
+                }
+
+                // W przeciwnym razie logujemy informację i czekamy
+                logger.warning("CrafterDatabase locked or busy (attempt " + attempt + "/" + maxRetries + "). Retrying in " + retryDelayMs + "ms... Reason: " + e.getMessage());
+                try {
+                    Thread.sleep(retryDelayMs);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    throw new SQLException("Thread interrupted while waiting for database retry", ie);
+                }
+            } finally {
+                // Zawsze bezpiecznie zamykamy połączenie, by zapobiec wyciekom pamięci
+                try {
+                    if (db != null && !db.isClosed()) {
+                        db.close();
+                    }
+                } catch (SQLException e1) {
+                    logger.warning("Could not close connection to database.");
+                    e1.printStackTrace();
+                }
             }
         }
     }
@@ -103,7 +130,7 @@ public class CrafterDatabase {
                 db.commit();
             });
         } catch (SQLException e) {
-            logger.warning("Failed to update tag for " + crafter.getName() + ".");
+            logger.warning("Failed to save skills for " + crafter.getName() + ".");
             e.printStackTrace();
             throw new FailedToSaveSkills();
         }
