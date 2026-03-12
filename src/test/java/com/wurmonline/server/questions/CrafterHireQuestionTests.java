@@ -148,7 +148,11 @@ class CrafterHireQuestionTests {
 
             assert crafterType != null;
             assertEquals(crafterType, WorkBook.getWorkBookFromWorker(crafter).getCrafterType());
-            Creatures.getInstance().permanentlyDelete(crafter);
+            try {
+                org.gotti.wurmunlimited.modloader.ReflectionUtil.callPrivateMethod(Creatures.getInstance(), org.gotti.wurmunlimited.modloader.ReflectionUtil.getMethod(Creatures.class, "permanentlyDelete"), crafter);
+            } catch (Exception e) {
+                throw new RuntimeException("Reflection error when removing NPCs", e);
+            }
         }
     }
 
@@ -159,7 +163,11 @@ class CrafterHireQuestionTests {
 
             Creature crafter = getNewlyCreatedCrafter();
             assertEquals(new CrafterType(type), WorkBook.getWorkBookFromWorker(crafter).getCrafterType());
-            Creatures.getInstance().permanentlyDelete(crafter);
+            try {
+                org.gotti.wurmunlimited.modloader.ReflectionUtil.callPrivateMethod(Creatures.getInstance(), org.gotti.wurmunlimited.modloader.ReflectionUtil.getMethod(Creatures.class, "permanentlyDelete"), crafter);
+            } catch (Exception e) {
+                throw new RuntimeException("Reflection error when removing NPCs", e);
+            }
         }
     }
 

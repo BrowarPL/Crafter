@@ -1315,7 +1315,7 @@ class CrafterTradeHandlerTests extends CrafterTradingTest {
 
         handler.balance();
 
-        assertNotEquals(0, handler.getTargetQL(blade), 0.0);
-        assertNotEquals(0, handler.getTargetQL(head), 0.0);
+        assertNotEquals(0.0, (double)handler.getTargetQL(blade));
+        assertNotEquals(0.0, (double)handler.getTargetQL(head));
     }
 }

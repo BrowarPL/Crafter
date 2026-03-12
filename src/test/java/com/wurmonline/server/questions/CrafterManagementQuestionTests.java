@@ -388,7 +388,7 @@ class CrafterManagementQuestionTests {
 
         assertThat(owner, receivedMessageContaining("You dismiss"));
         Map<Integer, Double> skills = CrafterDatabase.loadSkillsFor(contract);
-        assertEquals(98.0, skills.get(SkillList.SMITHING_GOLDSMITHING));
+        assertEquals(98.0, (double)skills.get(SkillList.SMITHING_GOLDSMITHING));
     }
 
     @Test
@@ -495,12 +495,11 @@ class CrafterManagementQuestionTests {
         assertEquals(0, workBook.todo());
         assertThat(owner, receivedMessageContaining("successfully refunded"));
         assertTrue(item.isMailed());
-        List<WurmMail> mail = WurmMail.allMail;
-        assertEquals(2, mail.size());
+        assertEquals(2, mod.wurmunlimited.npcs.MailTestHelper.getSize());
         Item one = Items.getItem(mail.get(0).itemId);
         Item two = Items.getItem(mail.get(1).itemId);
-        assertEquals(player.getWurmId(), mail.get(0).ownerId);
-        assertEquals(player.getWurmId(), mail.get(1).ownerId);
+        assertEquals(player.getWurmId(), mod.wurmunlimited.npcs.MailTestHelper.getOwnerId(0));
+        assertEquals(player.getWurmId(), mod.wurmunlimited.npcs.MailTestHelper.getOwnerId(1));
 
         if (one.getTemplateId() == item.getTemplateId()) {
             assertEquals(item, one);

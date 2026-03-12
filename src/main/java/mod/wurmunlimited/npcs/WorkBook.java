@@ -140,11 +140,11 @@ public class WorkBook implements Iterable<Job> {
             }
 
             if (skills.contains(SkillList.SMITHING_WEAPON_BLADES)) {
-                skills.remove(new Integer(SkillList.SMITHING_WEAPON_BLADES));
+                skills.remove(Integer.valueOf(SkillList.SMITHING_WEAPON_BLADES));
                 reSave.set(true);
             }
             if (skills.contains(SkillList.SMITHING_WEAPON_HEADS)) {
-                skills.remove(new Integer(SkillList.SMITHING_WEAPON_HEADS));
+                skills.remove(Integer.valueOf(SkillList.SMITHING_WEAPON_HEADS));
                 reSave.set(true);
             }
 

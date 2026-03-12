@@ -466,7 +466,7 @@ class CrafterAITests extends CrafterTest {
         data.sendNextAction();
         assertEquals(0, workBook.todo());
         assertEquals(0, workBook.done());
-        assertTrue(WurmMail.allMail.stream().anyMatch(m -> m.itemId == tool.getWurmId()));
+        assertTrue(mod.wurmunlimited.npcs.MailTestHelper.hasMail(tool.getWurmId()));
         assertEquals((long)(price * 0.9f), crafter.getShop().getMoney());
     }
 
@@ -482,13 +482,13 @@ class CrafterAITests extends CrafterTest {
         data.sendNextAction();
         assertEquals(0, workBook.todo());
         assertEquals(0, workBook.done());
-        assertTrue(WurmMail.allMail.stream().anyMatch(m -> m.itemId == tool.getWurmId()));
+        assertTrue(mod.wurmunlimited.npcs.MailTestHelper.hasMail(tool.getWurmId()));
         assertEquals((long)(price * 0.9f), crafter.getShop().getMoney());
 
-        WurmMail.allMail.clear();
+        mod.wurmunlimited.npcs.MailTestHelper.clearMail();
 
         data.sendNextAction();
-        assertFalse(WurmMail.allMail.stream().anyMatch(m -> m.itemId == tool.getWurmId()));
+        assertFalse(mod.wurmunlimited.npcs.MailTestHelper.hasMail(tool.getWurmId()));
     }
 
     // Not a great test.
@@ -589,7 +589,7 @@ class CrafterAITests extends CrafterTest {
 
         data.tools.addGivenTool(tool);
         assertEquals(tool, data.tools.getGivenTools().iterator().next());
-        assertEquals(tool.getWurmId(), CrafterDatabase.getGivenToolsFor(crafter).iterator().next());
+        assertEquals(tool.getWurmId(), (long)CrafterDatabase.getGivenToolsFor(crafter).iterator().next());
     }
 
     @Test

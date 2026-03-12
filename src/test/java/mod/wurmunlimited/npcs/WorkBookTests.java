@@ -684,7 +684,7 @@ class WorkBookTests extends GlobalRestrictionsFileWrapper {
         WorkBook workBook2 = new WorkBook(workBook.workBookItem);
         List<Byte> restrictedMaterials = workBook2.getRestrictedMaterials();
         assertEquals(1, restrictedMaterials.size());
-        assertEquals(ItemMaterials.MATERIAL_GOLD, restrictedMaterials.get(0));
+        assertEquals(ItemMaterials.MATERIAL_GOLD, (byte)restrictedMaterials.get(0));
     }
 
     @Test
@@ -781,7 +781,7 @@ class WorkBookTests extends GlobalRestrictionsFileWrapper {
         WorkBook workBook2 = WorkBook.getWorkBookFromWorker(crafter);
         List<Integer> blockedItems = workBook2.getBlockedItems();
         assertEquals(1, blockedItems.size());
-        assertEquals(ItemList.pickAxe, blockedItems.get(0));
+        assertEquals(ItemList.pickAxe, (int)blockedItems.get(0));
     }
 
     @Test
@@ -805,7 +805,7 @@ class WorkBookTests extends GlobalRestrictionsFileWrapper {
         WorkBook workBook2 = new WorkBook(workBook.workBookItem);
         List<Integer> blockedItems = workBook2.getBlockedItems();
         assertEquals(1, blockedItems.size());
-        assertEquals(ItemList.hatchet, blockedItems.get(0));
+        assertEquals(ItemList.hatchet, (int)blockedItems.get(0));
     }
 
     @Test
@@ -820,7 +820,7 @@ class WorkBookTests extends GlobalRestrictionsFileWrapper {
         WorkBook workBook3 = WorkBook.getWorkBookFromWorker(crafter);
         List<Integer> blockedItems = workBook3.getBlockedItems();
         assertEquals(1, blockedItems.size());
-        assertEquals(ItemList.shovel, blockedItems.get(0));
+        assertEquals(ItemList.shovel, (int)blockedItems.get(0));
     }
 
     @Test

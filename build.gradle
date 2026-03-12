@@ -22,11 +22,13 @@ repositories {
 
 configurations {
     provided
+}
 
-    sourceSets.main.compileClasspath += configurations.provided
-    sourceSets.main.runtimeClasspath += configurations.provided
-    sourceSets.test.compileClasspath += configurations.provided
-    sourceSets.test.runtimeClasspath += configurations.provided
+sourceSets {
+    main.compileClasspath += configurations.provided
+    main.runtimeClasspath += configurations.provided
+    test.compileClasspath = project(':WurmTestingHelper').sourceSets.main.output + configurations.provided + test.compileClasspath
+    test.runtimeClasspath = project(':WurmTestingHelper').sourceSets.main.output + configurations.provided + test.runtimeClasspath
 }
 
 dependencies {
