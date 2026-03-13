@@ -430,7 +430,6 @@ public class CrafterAIData extends CreatureAIData {
             if (workbook == null) {
                 try {
                     logger.info("WorkBook not found on crafter (" + crafter.getWurmId() + "), creating new and recovering state.");
-                    // FIX: Properly generate, insert into inventory and assign the new WorkBook object.
                     Item newWorkBookItem = WorkBook.createNewWorkBook(new CrafterType(CrafterType.allSkills), 30f).workBookItem;
                     crafter.getInventory().insertItem(newWorkBookItem);
                     workbook = new WorkBook(newWorkBookItem);
@@ -483,6 +482,13 @@ public class CrafterAIData extends CreatureAIData {
                 }
 
                 if (item.getDamage() > 0.0f) {
+                    // FIX: Pre-check if action is allowed before executing it (avoids stall/log spam)
+                    if (!com.wurmonline.server.behaviours.Methods.isActionAllowed(crafter, Actions.REPAIR)) {
+                        logger.warning(crafter.getName() + " does not have permission to REPAIR here. Cancelling job.");
+                        returnErrorJob(job);
+                        continue;
+                    }
+
                     try {
                         BehaviourDispatcher.action(crafter, crafter.getCommunicator(), -10, item.getWurmId(), Actions.REPAIR);
                     } catch (NoSuchPlayerException | NoSuchCreatureException | NoSuchItemException | NoSuchBehaviourException | NoSuchWallException | FailedException e) {
@@ -572,6 +578,13 @@ public class CrafterAIData extends CreatureAIData {
                 }
 
                 capSkills();
+
+                // FIX: Pre-check if action is allowed before executing it (avoids stall/log spam)
+                if (!com.wurmonline.server.behaviours.Methods.isActionAllowed(crafter, Actions.IMPROVE)) {
+                    logger.warning(crafter.getName() + " does not have permission to IMPROVE here. Cancelling job.");
+                    returnErrorJob(job);
+                    continue;
+                }
 
                 try {
                     BehaviourDispatcher.action(crafter, crafter.getCommunicator(), tool.getWurmId(), item.getWurmId(), Actions.IMPROVE);
