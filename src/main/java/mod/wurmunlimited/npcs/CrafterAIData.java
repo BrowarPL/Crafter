@@ -15,7 +15,6 @@ import com.wurmonline.server.creatures.ai.PathTile;
 import com.wurmonline.server.economy.Economy;
 import com.wurmonline.server.items.*;
 import com.wurmonline.server.players.Player;
-import com.wurmonline.server.skills.NoSuchSkillException;
 import com.wurmonline.server.skills.Skill;
 import com.wurmonline.server.structures.NoSuchWallException;
 import com.wurmonline.server.zones.VolaTile;
@@ -29,6 +28,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.sql.SQLException;
 import java.util.*;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 public class CrafterAIData extends CreatureAIData {
@@ -61,8 +61,7 @@ public class CrafterAIData extends CreatureAIData {
             try {
                 CrafterDatabase.addGivenToolFor(crafter, item);
             } catch (SQLException e) {
-                logger.warning("Could not add given tool " + item.getWurmId() + " to the database.  This tool won't work following next server restart.");
-                e.printStackTrace();
+                logger.log(Level.WARNING, "Could not add given tool " + item.getWurmId() + " to the database. This tool won't work following next server restart.", e);
             }
         }
 
@@ -74,8 +73,7 @@ public class CrafterAIData extends CreatureAIData {
                 }
                 CrafterDatabase.removeGivenToolFor(crafter, item);
             } catch (SQLException e) {
-                logger.warning("Could not remove given tool " + item.getWurmId() + " from the database.");
-                e.printStackTrace();
+                logger.log(Level.WARNING, "Could not remove given tool " + item.getWurmId() + " from the database.", e);
             }
         }
 
@@ -182,7 +180,7 @@ public class CrafterAIData extends CreatureAIData {
                     try {
                         workbook = new WorkBook(item);
                     } catch (WorkBook.InvalidWorkBookInscription e) {
-                        e.printStackTrace();
+                        logger.log(Level.WARNING, "Invalid WorkBook inscription found on item (" + item.getWurmId() + ").", e);
                         workbook = null;
                     }
                 }
@@ -199,8 +197,7 @@ public class CrafterAIData extends CreatureAIData {
             try {
                 givenToolIds = CrafterDatabase.getGivenToolsFor(crafter);
             } catch (SQLException e) {
-                logger.warning("Failed to load tools give to the crafter from database.");
-                e.printStackTrace();
+                logger.log(Level.WARNING, "Failed to load tools give to the crafter from database.", e);
                 givenToolIds = Collections.emptySet();
             }
 
@@ -419,8 +416,7 @@ public class CrafterAIData extends CreatureAIData {
                     try {
                         workbook = new WorkBook(item);
                     } catch (WorkBook.InvalidWorkBookInscription e) {
-                        logger.warning("WorkBook (" + item.getWurmId() + ") had an invalid inscription.  No longer sending actions.");
-                        e.printStackTrace();
+                        logger.log(Level.WARNING, "WorkBook (" + item.getWurmId() + ") had an invalid inscription. No longer sending actions.", e);
                         canAction = false;
                         return;
                     }
@@ -429,14 +425,12 @@ public class CrafterAIData extends CreatureAIData {
 
             if (workbook == null) {
                 try {
-                    logger.info("WorkBook not found on crafter (" + crafter.getWurmId() + "), creating new and recovering state.");
                     Item newWorkBookItem = WorkBook.createNewWorkBook(new CrafterType(CrafterType.allSkills), 30f).workBookItem;
                     crafter.getInventory().insertItem(newWorkBookItem);
                     workbook = new WorkBook(newWorkBookItem);
                 } catch (Exception e) {
-                    logger.warning("WorkBook not found on crafter (" + crafter.getWurmId() + "), and could not create new.  No longer sending actions.");
+                    logger.log(Level.WARNING, "WorkBook not found on crafter (" + crafter.getWurmId() + "), and could not create new. No longer sending actions.", e);
                     canAction = false;
-                    e.printStackTrace();
                     return;
                 }
             }
@@ -452,7 +446,7 @@ public class CrafterAIData extends CreatureAIData {
             if (!job.isDone()) {
                 Item item = job.item;
                 if (!item.isRepairable()) {
-                    logger.warning(item.getName() + " was not supposed to be accepted.  Returning and refunding.");
+                    logger.warning(item.getName() + " was not supposed to be accepted. Returning and refunding.");
                     returnErrorJob(job);
                     continue;
                 }
@@ -482,7 +476,6 @@ public class CrafterAIData extends CreatureAIData {
                 }
 
                 if (item.getDamage() > 0.0f) {
-                    // FIX: Pre-check if action is allowed before executing it (avoids stall/log spam)
                     if (!com.wurmonline.server.behaviours.Methods.isActionAllowed(crafter, Actions.REPAIR)) {
                         logger.warning(crafter.getName() + " does not have permission to REPAIR here. Cancelling job.");
                         returnErrorJob(job);
@@ -492,8 +485,7 @@ public class CrafterAIData extends CreatureAIData {
                     try {
                         BehaviourDispatcher.action(crafter, crafter.getCommunicator(), -10, item.getWurmId(), Actions.REPAIR);
                     } catch (NoSuchPlayerException | NoSuchCreatureException | NoSuchItemException | NoSuchBehaviourException | NoSuchWallException | FailedException e) {
-                        logger.warning(crafter.getName() + " (" + crafter.getWurmId() + ") could not repair " + item.getName() + " (" + item.getWurmId() + ").");
-                        e.printStackTrace();
+                        logger.log(Level.WARNING, crafter.getName() + " (" + crafter.getWurmId() + ") could not repair " + item.getName() + " (" + item.getWurmId() + ").", e);
                         returnErrorJob(job);
                     }
                     return;
@@ -507,8 +499,7 @@ public class CrafterAIData extends CreatureAIData {
                             setFire.setAccessible(true);
                             setFire.invoke(null, crafter, forge);
                         } catch (IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
-                            logger.warning("Could not light forge.");
-                            e.printStackTrace();
+                            logger.log(Level.WARNING, "Could not light forge.", e);
                         }
                     }
                     forge.setTemperature((short)10000);
@@ -525,8 +516,7 @@ public class CrafterAIData extends CreatureAIData {
                         try {
                             lump = tools.createMissingItem(lumpId);
                         } catch (NoSuchTemplateException | FailedException e) {
-                            logger.warning("Could not create required improving item (template id - " + lumpId + ").");
-                            e.printStackTrace();
+                            logger.log(Level.WARNING, "Could not create required improving item (template id " + lumpId + ").", e);
                             continue;
                         }
                     }
@@ -557,12 +547,10 @@ public class CrafterAIData extends CreatureAIData {
                         else
                             tool = tools.createMissingItem(toolTemplateId);
                     } catch (NoSuchTemplateException | FailedException e) {
-                        logger.warning("Could not create required improving item (template id - " + toolTemplateId + ").");
-                        e.printStackTrace();
+                        logger.log(Level.WARNING, "Could not create required improving item (template id " + toolTemplateId + ").", e);
                         continue;
                     } catch (NoSpaceException e) {
-                        logger.warning("Could not get hand item for improving.");
-                        e.printStackTrace();
+                        logger.log(Level.WARNING, "Could not get hand item for improving.", e);
                         continue;
                     }
                 }
@@ -579,7 +567,6 @@ public class CrafterAIData extends CreatureAIData {
 
                 capSkills();
 
-                // FIX: Pre-check if action is allowed before executing it (avoids stall/log spam)
                 if (!com.wurmonline.server.behaviours.Methods.isActionAllowed(crafter, Actions.IMPROVE)) {
                     logger.warning(crafter.getName() + " does not have permission to IMPROVE here. Cancelling job.");
                     returnErrorJob(job);
@@ -589,8 +576,7 @@ public class CrafterAIData extends CreatureAIData {
                 try {
                     BehaviourDispatcher.action(crafter, crafter.getCommunicator(), tool.getWurmId(), item.getWurmId(), Actions.IMPROVE);
                 } catch (NoSuchPlayerException | NoSuchCreatureException | NoSuchItemException | NoSuchBehaviourException | NoSuchWallException | FailedException e) {
-                    logger.warning(crafter.getName() + " (" + crafter.getWurmId() + ") could not improve " + item.getName() + " (" + item.getWurmId() + ") with " + tool.getName() + " (" + tool.getWurmId() + ").");
-                    e.printStackTrace();
+                    logger.log(Level.WARNING, crafter.getName() + " (" + crafter.getWurmId() + ") could not improve " + item.getName() + " (" + item.getWurmId() + ") with " + tool.getName() + " (" + tool.getWurmId() + ").", e);
                     returnErrorJob(job);
                     continue;
                 }
@@ -607,8 +593,7 @@ public class CrafterAIData extends CreatureAIData {
         try {
             job.refundCustomer();
         } catch (NoSuchTemplateException | FailedException e) {
-            logger.warning("Could not create refund package while dismissing Crafter, customers were not compensated.");
-            e.printStackTrace();
+            logger.log(Level.WARNING, "Could not create refund package while dismissing Crafter, customers were not compensated.", e);
         }
         workbook.removeJob(item);
     }
