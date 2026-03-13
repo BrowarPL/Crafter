@@ -19,8 +19,10 @@ import mod.wurmunlimited.bml.BMLBuilder;
 import mod.wurmunlimited.npcs.*;
 import mod.wurmunlimited.npcs.db.CrafterDatabase;
 
+import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.util.Properties;
+import java.util.logging.Level;
 
 import static com.wurmonline.server.creatures.CreaturePackageCaller.saveCreatureName;
 
@@ -51,7 +53,7 @@ public class CrafterManagementQuestion extends CrafterQuestionExtension {
     }
 
     @Override
-    public void answer(Properties properties) {
+    public void answer(@Nonnull Properties properties) {
         setAnswer(properties);
 
         String name = getStringProp("name");
@@ -65,15 +67,14 @@ public class CrafterManagementQuestion extends CrafterQuestionExtension {
                     crafter.refreshVisible();
                     responder.getCommunicator().sendNormalServerMessage("The crafter will now be known as " + crafter.getName() + ".");
                 } catch (IOException e) {
-                    logger.warning("Failed to set name (" + fullName + ") for creature (" + crafter.getWurmId() + ").");
+                    logger.log(Level.WARNING, "Failed to set name (" + fullName + ") for creature (" + crafter.getWurmId() + ").", e);
                     responder.getCommunicator().sendNormalServerMessage("The crafter looks confused, what exactly is a database?");
-                    e.printStackTrace();
                 }
             }
         }
 
         String val = properties.getProperty("price_modifier");
-        if (val != null && val.length() > 0) {
+        if (val != null && !val.isEmpty()) {
             try {
                 float priceModifier = Float.parseFloat(val);
                 if (priceModifier <= 0)
@@ -115,12 +116,10 @@ public class CrafterManagementQuestion extends CrafterQuestionExtension {
                     responder.getCommunicator().sendNormalServerMessage(crafter.getName() + " successfully refunded the job.");
                 }
             } catch (WorkBook.NoWorkBookOnWorker e) {
-                logger.warning("Crafter workbook was missing.");
-                e.printStackTrace();
+                logger.log(Level.WARNING, "Crafter workbook was missing.", e);
                 responder.getCommunicator().sendNormalServerMessage(crafter.getName() + " fumbles about and cannot find their workbook.");
             } catch (NoSuchTemplateException | FailedException e) {
-                logger.warning("Error occurred when attempting to refund stopped job.");
-                e.printStackTrace();
+                logger.log(Level.WARNING, "Error occurred when attempting to refund stopped job.", e);
                 responder.getCommunicator().sendNormalServerMessage("Could not create refund package while stopping job, the customer was not compensated.");
             }
         } else if (wasSelected("skills")) {
@@ -129,16 +128,14 @@ public class CrafterManagementQuestion extends CrafterQuestionExtension {
             try {
                 new CrafterMaterialRestrictionQuestion(getResponder(), crafter).sendQuestion();
             } catch (WorkBook.NoWorkBookOnWorker e) {
-                logger.warning("Crafter workbook was missing.");
-                e.printStackTrace();
+                logger.log(Level.WARNING, "Crafter workbook was missing.", e);
                 responder.getCommunicator().sendNormalServerMessage(crafter.getName() + " fumbles about and cannot find their workbook.");
             }
         } else if (wasSelected("block")) {
             try {
                 new CrafterBlockedItemsQuestion(getResponder(), crafter).sendQuestion();
             } catch (WorkBook.NoWorkBookOnWorker e) {
-                logger.warning("Crafter workbook was missing.");
-                e.printStackTrace();
+                logger.log(Level.WARNING, "Crafter workbook was missing.", e);
                 responder.getCommunicator().sendNormalServerMessage(crafter.getName() + " fumbles about and cannot find their workbook.");
             }
         } else if (wasSelected("invite")) {
@@ -166,8 +163,7 @@ public class CrafterManagementQuestion extends CrafterQuestionExtension {
                 logger.warning("Could not find default citizen role, pleases report.");
             } catch (IOException e) {
                 responder.getCommunicator().sendAlertServerMessage("An error occurred in the rifts of the void.  Please report.");
-                logger.warning("Error when adding crafter to village, pleases report.");
-                e.printStackTrace();
+                logger.log(Level.WARNING, "Error when adding crafter to village, pleases report.", e);
             }
         }
     }
@@ -233,19 +229,16 @@ public class CrafterManagementQuestion extends CrafterQuestionExtension {
                         job.refundCustomer();
                     }
                 } catch (WorkBook.NoWorkBookOnWorker e) {
-                    logger.warning("Could not find Work Book while dismissing Crafter, customers were not compensated.");
-                    e.printStackTrace();
+                    logger.log(Level.WARNING, "Could not find Work Book while dismissing Crafter, customers were not compensated.", e);
                 } catch (NoSuchTemplateException | FailedException e) {
-                    logger.warning("Could not create refund package while dismissing Crafter, customers were not compensated.");
-                    e.printStackTrace();
+                    logger.log(Level.WARNING, "Could not create refund package while dismissing Crafter, customers were not compensated.", e);
                 }
 
                 if (CrafterMod.allowSavedSkills() && writ != null) {
                     try {
                         CrafterDatabase.saveSkillsFor(crafter, writ);
                     } catch (CrafterDatabase.FailedToSaveSkills e) {
-                        logger.warning("An error occurred when attempting to save Crafter skills.  Skills were not saved.");
-                        e.printStackTrace();
+                        logger.log(Level.WARNING, "An error occurred when attempting to save Crafter skills. Skills were not saved.", e);
                     }
                 }
 
@@ -255,6 +248,5 @@ public class CrafterManagementQuestion extends CrafterQuestionExtension {
                 responder.getCommunicator().sendNormalServerMessage(crafter.getName() + " is trading.  Try later.");
         } else
             responder.getCommunicator().sendNormalServerMessage("The crafter cannot be dismissed now.");
-
     }
 }
