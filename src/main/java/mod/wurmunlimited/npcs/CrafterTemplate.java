@@ -23,7 +23,7 @@ public class CrafterTemplate implements ModCreature {
             "mod.creature.crafter",
                 "crafter",
                 "A local crafter who will improve items for coin.",
-                "model.creature.humanoid.human.player",
+                "model.creature.humanoid.human.salesman",
                 types,
                 (byte)0,
                 (short)2,

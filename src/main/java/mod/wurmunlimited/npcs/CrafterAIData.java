@@ -629,15 +629,10 @@ public class CrafterAIData extends CreatureAIData {
     public static Creature createNewCrafter(Creature owner, String name, byte sex, CrafterType crafterType, float skillCap, float priceModifier, Map<Integer, Double> skills) throws Exception {
         skillCap = Math.min(skillCap, CrafterMod.getSkillCap());
         VolaTile tile = owner.getCurrentTile();
-        Creature crafter = Creature.doNew(CrafterTemplate.getTemplateId(), (float)(tile.getTileX() << 2) + 2.0F, (float)(tile.getTileY() << 2) + 2.0F, 180.0F, owner.getLayer(), name, sex, owner.getKingdomId());
 
-        // Assign the correct pre-baked merchant model based on gender.
-        // These models have baked-in textures and clothes, preventing the "white texture" bug.
-        if (sex == 0) { // Male
-            crafter.setModelName("model.creature.humanoid.salesman.male.free");
-        } else { // Female
-            crafter.setModelName("model.creature.humanoid.salesman.female.free");
-        }
+        // This native function will now automatically use the "salesman" template we defined,
+        // natively applying .male or .female based on the "sex" byte passed below!
+        Creature crafter = Creature.doNew(CrafterTemplate.getTemplateId(), (float)(tile.getTileX() << 2) + 2.0F, (float)(tile.getTileY() << 2) + 2.0F, 180.0F, owner.getLayer(), name, sex, owner.getKingdomId());
 
         // Cleaning up. Hook may not be run after other mods have adjusted the createShop method.
         for (Item item : crafter.getInventory().getItemsAsArray()) {
@@ -659,9 +654,6 @@ public class CrafterAIData extends CreatureAIData {
             }
         }
         crafter.getCreatureAIData().setCreature(crafter);
-
-        // Force the client to render the newly assigned model
-        crafter.refreshVisible();
 
         return crafter;
     }
