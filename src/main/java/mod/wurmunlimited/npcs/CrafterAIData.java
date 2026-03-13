@@ -274,7 +274,8 @@ public class CrafterAIData extends CreatureAIData {
     }
 
     public void log(String message) {
-        logger.info(message);
+        // Changed from info to fine to prevent server console spam
+        logger.fine(message);
     }
 
     @Override

@@ -223,17 +223,6 @@ public class CrafterManagementQuestion extends CrafterQuestionExtension {
                     }
                 }
 
-                try {
-                    for (Job job : WorkBook.getWorkBookFromWorker(crafter)) {
-                        job.mailToCustomer();
-                        job.refundCustomer();
-                    }
-                } catch (WorkBook.NoWorkBookOnWorker e) {
-                    logger.log(Level.WARNING, "Could not find Work Book while dismissing Crafter, customers were not compensated.", e);
-                } catch (NoSuchTemplateException | FailedException e) {
-                    logger.log(Level.WARNING, "Could not create refund package while dismissing Crafter, customers were not compensated.", e);
-                }
-
                 if (CrafterMod.allowSavedSkills() && writ != null) {
                     try {
                         CrafterDatabase.saveSkillsFor(crafter, writ);
@@ -243,10 +232,15 @@ public class CrafterManagementQuestion extends CrafterQuestionExtension {
                 }
 
                 CrafterAI.assignedForges.remove(crafter);
+
+                // Destroying the crafter automatically triggers a hook from CrafterMod.java,
+                // which safely and once returns all items and money to customers.
                 crafter.destroy();
-            } else
-                responder.getCommunicator().sendNormalServerMessage(crafter.getName() + " is trading.  Try later.");
-        } else
+            } else {
+                responder.getCommunicator().sendNormalServerMessage(crafter.getName() + " is trading. Try later.");
+            }
+        } else {
             responder.getCommunicator().sendNormalServerMessage("The crafter cannot be dismissed now.");
+        }
     }
 }

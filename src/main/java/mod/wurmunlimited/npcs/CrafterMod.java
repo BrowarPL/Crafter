@@ -43,7 +43,6 @@ public class CrafterMod implements WurmServerMod, PreInitable, Initable, Configu
     private static final Logger logger = Logger.getLogger(CrafterMod.class.getName());
     public static final String dbName = "crafter.db";
     public static CrafterMod mod;
-    private static final Random faceRandom = new Random();
     public static final int maxNameLength = 50;
     static final byte MAIL_TYPE_CRAFTER = 30;
     public static final int DRAGON_ARMOUR = -1;
@@ -167,19 +166,15 @@ public class CrafterMod implements WurmServerMod, PreInitable, Initable, Configu
     }
 
     public static boolean isGloballyRestrictedMaterial(byte material) {
-        return restrictedMaterials.size() != 0 && !restrictedMaterials.contains(material);
+        return !restrictedMaterials.isEmpty() && !restrictedMaterials.contains(material);
     }
 
     public static boolean materialsRestrictedGlobally() {
-        return restrictedMaterials.size() > 0;
+        return !restrictedMaterials.isEmpty();
     }
 
     public static float getMaxItemQL() {
         return maxItemQL;
-    }
-
-    public static boolean eventMessagesEnabled() {
-        return send_event_messages;
     }
 
     public static boolean allowSavedSkills() {
@@ -188,9 +183,6 @@ public class CrafterMod implements WurmServerMod, PreInitable, Initable, Configu
 
     public static boolean allowThreatening(Creature one, Creature two) {
         switch (threatening) {
-            default:
-            case disabled:
-                return false;
             case kingdom:
                 return !two.isFriendlyKingdom(one.getKingdomId());
             case village_alliance:
@@ -200,12 +192,15 @@ public class CrafterMod implements WurmServerMod, PreInitable, Initable, Configu
                 } else {
                     return v.isEnemy(two, true);
                 }
+            case disabled:
+            default:
+                return false;
         }
     }
 
     private OutputOption parseOutputOption(String value) {
         OutputOption option = output;
-        if (value != null && value.length() > 0) {
+        if (value != null && !value.isEmpty()) {
             if (value.equals("save"))
                 option = OutputOption.save;
             else if (value.equals("print"))
@@ -216,12 +211,11 @@ public class CrafterMod implements WurmServerMod, PreInitable, Initable, Configu
 
     private PaymentOption parsePaymentOption(String value) {
         PaymentOption option = paymentOption;
-        if (value != null && value.length() > 0) {
+        if (value != null && !value.isEmpty()) {
             try {
                 option = PaymentOption.valueOf(value);
             } catch (IllegalArgumentException e) {
-                logger.warning("Invalid PaymentOption - " + value);
-                e.printStackTrace();
+                logger.log(Level.WARNING, "Invalid PaymentOption - " + value, e);
             }
         }
         return option;
@@ -229,12 +223,11 @@ public class CrafterMod implements WurmServerMod, PreInitable, Initable, Configu
 
     private ThreatenOption parseThreateningOption(String value) {
         ThreatenOption option = threatening;
-        if (value != null && value.length() > 0) {
+        if (value != null && !value.isEmpty()) {
             try {
                 option = ThreatenOption.valueOf(value);
             } catch (IllegalArgumentException e) {
-                logger.warning("Invalid ThreateningOption - " + value);
-                e.printStackTrace();
+                logger.log(Level.WARNING, "Invalid ThreateningOption - " + value, e);
             }
         }
         return option;
@@ -242,7 +235,7 @@ public class CrafterMod implements WurmServerMod, PreInitable, Initable, Configu
 
     private boolean getOption(String option, boolean _default) {
         String val = properties.getProperty(option);
-        if (val != null && val.length() > 0) {
+        if (val != null && !val.isEmpty()) {
             try {
                 return Boolean.parseBoolean(val);
             } catch (NumberFormatException e) {
@@ -254,7 +247,7 @@ public class CrafterMod implements WurmServerMod, PreInitable, Initable, Configu
 
     private int getOption(String option, int _default) {
         String val = properties.getProperty(option);
-        if (val != null && val.length() > 0) {
+        if (val != null && !val.isEmpty()) {
             try {
                 return Integer.parseInt(val);
             } catch (NumberFormatException e) {
@@ -266,7 +259,7 @@ public class CrafterMod implements WurmServerMod, PreInitable, Initable, Configu
 
     private float getOption(String option, float _default) {
         String val = properties.getProperty(option);
-        if (val != null && val.length() > 0) {
+        if (val != null && !val.isEmpty()) {
             try {
                 float value = Float.parseFloat(val);
                 if (value <= 0)
@@ -333,17 +326,14 @@ public class CrafterMod implements WurmServerMod, PreInitable, Initable, Configu
 
         try {
             byte[] materials = Files.readAllBytes(globalRestrictionsPath);
-            if (materials.length > 0) {
-                for (byte mat : materials) {
-                    if (mat > 0 && mat <= ItemMaterials.MATERIAL_MAX) {
-                        restrictedMaterials.add(mat);
-                    }
+            for (byte mat : materials) {
+                if (mat > 0 && mat <= ItemMaterials.MATERIAL_MAX) {
+                    restrictedMaterials.add(mat);
                 }
             }
         } catch (NoSuchFileException ignored) {
         } catch (IOException e) {
-            logger.warning("Error reading \"global_restrictions\":");
-            e.printStackTrace();
+            logger.log(Level.WARNING, "Error reading \"global_restrictions\":", e);
         }
 
         try (DataInputStream di = new DataInputStream(Files.newInputStream(globalBlockedItemsPath))) {
@@ -359,8 +349,7 @@ public class CrafterMod implements WurmServerMod, PreInitable, Initable, Configu
             }
         } catch (NoSuchFileException ignored) {
         } catch (IOException e) {
-            logger.warning("Error reading \"blocked_items\":");
-            e.printStackTrace();
+            logger.log(Level.WARNING, "Error reading \"blocked_items\":", e);
         }
     }
 
@@ -378,8 +367,7 @@ public class CrafterMod implements WurmServerMod, PreInitable, Initable, Configu
 
             Files.write(globalRestrictionsPath, bytes, StandardOpenOption.CREATE, StandardOpenOption.WRITE);
         } catch (IOException e) {
-            logger.warning("Error saving \"global_restrictions\", changes not saved:");
-            e.printStackTrace();
+            logger.log(Level.WARNING, "Error saving \"global_restrictions\", changes not saved:", e);
         }
     }
 
@@ -392,8 +380,7 @@ public class CrafterMod implements WurmServerMod, PreInitable, Initable, Configu
                 ds.writeInt(blocked);
             }
         } catch (IOException e) {
-            logger.warning("Error saving \"blocked_items\", changes not saved:");
-            e.printStackTrace();
+            logger.log(Level.WARNING, "Error saving \"blocked_items\", changes not saved:", e);
         }
     }
 
@@ -491,8 +478,7 @@ public class CrafterMod implements WurmServerMod, PreInitable, Initable, Configu
                             job.mailToCustomer();
                             job.refundCustomer();
                         } catch (NoSuchTemplateException | FailedException e) {
-                            logger.warning("Error when destroying crafter and attempting refund.");
-                            e.printStackTrace();
+                            logger.log(Level.WARNING, "Error when destroying crafter and attempting refund.", e);
                         }
                     });
                     Shop shop = Economy.getEconomy().getShop(crafter);
@@ -510,10 +496,9 @@ public class CrafterMod implements WurmServerMod, PreInitable, Initable, Configu
                         shop.delete();
                     }
                 } catch (WorkBook.NoWorkBookOnWorker e) {
-                    logger.warning("Could not find workbook when destroying crafter.");
-                    e.printStackTrace();
+                    logger.log(Level.WARNING, "Could not find workbook when destroying crafter.", e);
                 } catch (Exception e) {
-                    e.printStackTrace();
+                    logger.log(Level.WARNING, "Exception when destroying crafter.", e);
                 }
             }
             return method.invoke(o, args);
@@ -589,7 +574,8 @@ public class CrafterMod implements WurmServerMod, PreInitable, Initable, Configu
                             creature.getInventory().insertItem(Creature.createItem(contractTemplateId, (float) (10 + Server.rand.nextInt(80))));
                             shop.setMerchantData(shop.getNumberOfItems() + 1);
                         } catch (Exception e) {
-                            logger.log(Level.INFO, "Failed to create trader inventory items for shop, creature: " + creature.getName(), e);
+                            // Changed Level.INFO to Level.WARNING due to exception context
+                            logger.log(Level.WARNING, "Failed to create trader inventory items for shop, creature: " + creature.getName(), e);
                         }
                     }
                 }
@@ -640,7 +626,8 @@ public class CrafterMod implements WurmServerMod, PreInitable, Initable, Configu
             creatureField.setAccessible(true);
             Creature creature = (Creature)creatureField.get(o);
             if (creature.getTemplate().getTemplateId() == CrafterTemplate.getTemplateId()) {
-                getCrafterLogger(creature).info("Received - " + args[0]);
+                // Changed from info to fine to prevent console spam
+                getCrafterLogger(creature).fine("Received - " + args[0]);
             }
         }
         return method.invoke(o, args);
@@ -710,7 +697,6 @@ public class CrafterMod implements WurmServerMod, PreInitable, Initable, Configu
 
         if (handler == null) {
             Class<?> ServiceHandler = Class.forName("com.wurmonline.server.creatures.CrafterTradeHandler");
-            //noinspection RedundantCast
             handler = (TradeHandler)ServiceHandler.getConstructor(Creature.class, CrafterTrade.class).newInstance(creature, (CrafterTrade)creature.getTrade());
             tradeHandler.set(o, handler);
         }
@@ -722,7 +708,6 @@ public class CrafterMod implements WurmServerMod, PreInitable, Initable, Configu
         Player player = communicator.getPlayer();
 
         if (player != null) {
-            //noinspection SpellCheckingInspection
             if (mailCommand && message.replace(" ", "").equals("/crafterscollect")) {
                 int collected = 0;
                 for (WurmMail mail : WurmMail.getMailsFor(player.getWurmId()).toArray(new WurmMail[0])) {
@@ -731,7 +716,8 @@ public class CrafterMod implements WurmServerMod, PreInitable, Initable, Configu
                         try {
                             item = Items.getItem(mail.getItemId());
                         } catch (NoSuchItemException e) {
-                            logger.log(Level.INFO, " NO SUCH ITEM");
+                            // Changed Level.INFO to Level.WARNING
+                            logger.log(Level.WARNING, "NO SUCH ITEM IN MAIL");
                             WurmMail.deleteMail(mail.itemId);
                             continue;
                         }
@@ -755,7 +741,8 @@ public class CrafterMod implements WurmServerMod, PreInitable, Initable, Configu
                         inventory.insertItem(item, true);
                         item.setLastOwnerId(player.getWurmId());
                         item.setMailed(false);
-                        logger.log(Level.INFO, player.getName() + " received " + item.getName() + " " + item.getWurmId());
+                        // Changed Level.INFO to Level.FINE
+                        logger.log(Level.FINE, player.getName() + " received " + item.getName() + " " + item.getWurmId());
                         collected += 1;
                     }
                 }
@@ -773,11 +760,11 @@ public class CrafterMod implements WurmServerMod, PreInitable, Initable, Configu
                 // Doesn't run if the question is called here directly.
                 QuestionWrapper.materialRestrictionQuestion(player);
                 return MessagePolicy.DISCARD;
-            } else //noinspection SpellCheckingInspection
+            } else
                 if (player.getPower() >= 2 && message.equals("/blockcrafteritems")) {
-                QuestionWrapper.blockCrafterItems(player);
-                return MessagePolicy.DISCARD;
-            }
+                    QuestionWrapper.blockCrafterItems(player);
+                    return MessagePolicy.DISCARD;
+                }
         }
 
         return MessagePolicy.PASS;
@@ -808,8 +795,7 @@ public class CrafterMod implements WurmServerMod, PreInitable, Initable, Configu
                             }
                         }
                     } catch (NoSuchPlayerException | NoSuchCreatureException | NoSuchFieldException e) {
-                        logger.warning("Error when trying to transfer crafter contract (for " + data + ") to another player.");
-                        e.printStackTrace();
+                        logger.log(Level.WARNING, "Error when trying to transfer crafter contract (for " + data + ") to another player.", e);
                     }
                 }
             }
@@ -861,7 +847,7 @@ public class CrafterMod implements WurmServerMod, PreInitable, Initable, Configu
             }
         } catch (Exception e) {
             question.getResponder().getCommunicator().sendAlertServerMessage("An error occurred in the rifts of the void. The crafter was not created.");
-            e.printStackTrace();
+            logger.log(Level.WARNING, "Error during creature creation.", e);
         }
 
         return method.invoke(o, args);
