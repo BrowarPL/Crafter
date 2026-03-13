@@ -244,38 +244,31 @@ public class CrafterAIData extends CreatureAIData {
 
                         @Override
                         public boolean hasNext() {
+                            // FIXED: If the current list is over (or doesn't exist), we try to move to the next one
                             if (current == null || !current.hasNext()) {
                                 return moveOn();
                             }
-
-                            return false;
+                            // FIXED: If it has a next element, we ALWAYS return true (originally there was a bug that returned false!)
+                            return true;
                         }
 
                         @Override
                         public Item next() {
-                            if (current == null || !current.hasNext()) {
-                                moveOn();
+                            // FIXED: Protection against throwing a NullPointerException error
+                            if (!hasNext()) {
+                                throw new NoSuchElementException("No more given tools available.");
                             }
-
                             return current.next();
                         }
 
                         private boolean moveOn() {
-                            if (!tools.hasNext()) {
-                                return false;
-                            }
-
-                            current = tools.next().iterator();
-
-                            while (!current.hasNext()) {
-                                if (!tools.hasNext()) {
-                                    return false;
-                                }
-
+                            while (tools.hasNext()) {
                                 current = tools.next().iterator();
+                                if (current.hasNext()) {
+                                    return true;
+                                }
                             }
-
-                            return true;
+                            return false;
                         }
                     };
                 }
