@@ -51,12 +51,15 @@ public class CrafterAI extends CreatureAI {
             e.printStackTrace();
         }
 
-        if (!isDead && !c.isTrading() && !c.isFighting()) {// TODO - Stamina, including letting crafter put items in forge whilst waiting for stamina. && c.getStatus().calcStaminaPercent() == 100) {
+        if (!isDead && !c.isTrading() && !c.isFighting()) {
+            // TODO - Stamina, including letting crafter put items in forge whilst waiting for stamina. && c.getStatus().calcStaminaPercent() == 100) {
             // TODO - Creatures don't seem to update stamina as frequently as players.
             try {
+                // Silently check if the creature is currently performing an action.
+                // We removed the highly-frequent .info() log spam here for production stability.
                 Action action = c.getCurrentAction();
-                CrafterMod.getCrafterLogger(c).info(action.getActionString());
             } catch (NoSuchActionException ignored) {
+                // If no action is being performed, ask for the next one.
                 CrafterAIData data = ((CrafterAIData)c.getCreatureAIData());
                 if (data.canAction)
                     data.sendNextAction();

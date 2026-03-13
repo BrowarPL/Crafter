@@ -436,9 +436,12 @@ public class CrafterAIData extends CreatureAIData {
 
             if (workbook == null) {
                 try {
-                    logger.info("WorkBook not found on Crafter, creating new.");
-                    WorkBook.createNewWorkBook(new CrafterType(CrafterType.allSkills), 30f);
-                } catch (NoSuchTemplateException | FailedException e) {
+                    logger.info("WorkBook not found on crafter (" + crafter.getWurmId() + "), creating new and recovering state.");
+                    // FIX: Properly generate, insert into inventory and assign the new WorkBook object.
+                    Item newWorkBookItem = WorkBook.createNewWorkBook(new CrafterType(CrafterType.allSkills), 30f).workBookItem;
+                    crafter.getInventory().insertItem(newWorkBookItem);
+                    workbook = new WorkBook(newWorkBookItem);
+                } catch (Exception e) {
                     logger.warning("WorkBook not found on crafter (" + crafter.getWurmId() + "), and could not create new.  No longer sending actions.");
                     canAction = false;
                     e.printStackTrace();
@@ -447,7 +450,7 @@ public class CrafterAIData extends CreatureAIData {
             }
         }
         if (workbook.todo() == 0 && workbook.donationsTodo() == 0) {
-            if (workbook.isForgeAssigned() && forge.isOnFire()) {
+            if (workbook.isForgeAssigned() && forge != null && forge.isOnFire()) {
                 forge.setTemperature((short)0);
             }
             return;
@@ -457,7 +460,7 @@ public class CrafterAIData extends CreatureAIData {
             if (!job.isDone()) {
                 Item item = job.item;
                 if (!item.isRepairable()) {
-                    logger.info(item.getName() + " was not supposed to be accepted.  Returning and refunding.");
+                    logger.warning(item.getName() + " was not supposed to be accepted.  Returning and refunding.");
                     returnErrorJob(job);
                     continue;
                 }
@@ -482,8 +485,6 @@ public class CrafterAIData extends CreatureAIData {
                         if (forge != null && forge.getItems().contains(item))
                             crafter.getInventory().insertItem(item);
                         workbook.setDone(job, crafter);
-                        logger.info(item.getName() + " is done.");
-                        // In case a Job is removed at the wrong time.
                         return;
                     }
                 }
@@ -491,15 +492,13 @@ public class CrafterAIData extends CreatureAIData {
                 if (item.getDamage() > 0.0f) {
                     try {
                         BehaviourDispatcher.action(crafter, crafter.getCommunicator(), -10, item.getWurmId(), Actions.REPAIR);
-                        logger.info("Repairing " + item.getName());
                     } catch (NoSuchPlayerException | NoSuchCreatureException | NoSuchItemException | NoSuchBehaviourException | NoSuchWallException | FailedException e) {
-                        logger.warning(crafter.getName() + " (" + crafter.getWurmId() + ") could not repair " + item.getName() + " (" + item.getWurmId() + ").  Reason follows:");
+                        logger.warning(crafter.getName() + " (" + crafter.getWurmId() + ") could not repair " + item.getName() + " (" + item.getWurmId() + ").");
                         e.printStackTrace();
                         returnErrorJob(job);
                     }
                     return;
                 } else if (item.isMetal()) {
-                    // TODO - Baking pottery items?
                     if (forge == null)
                         continue;
 
@@ -508,15 +507,13 @@ public class CrafterAIData extends CreatureAIData {
                             Method setFire = MethodsItems.class.getDeclaredMethod("setFire", Creature.class, Item.class);
                             setFire.setAccessible(true);
                             setFire.invoke(null, crafter, forge);
-                            logger.info("Lighting forge");
                         } catch (IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
-                            logger.warning("Could not light forge.  Reason follows:");
+                            logger.warning("Could not light forge.");
                             e.printStackTrace();
                         }
                     }
                     forge.setTemperature((short)10000);
 
-                    // Clear out ash for Ash produce mod.
                     for (Item it : forge.getAllItems(true)) {
                         if (it.getTemplateId() == ItemList.ash) {
                             Items.destroyItem(it.getWurmId());
@@ -529,26 +526,21 @@ public class CrafterAIData extends CreatureAIData {
                         try {
                             lump = tools.createMissingItem(lumpId);
                         } catch (NoSuchTemplateException | FailedException e) {
-                            logger.warning("Could not create required improving item (template id - " + lumpId + ").  Reason follows:");
+                            logger.warning("Could not create required improving item (template id - " + lumpId + ").");
                             e.printStackTrace();
                             continue;
                         }
                     }
                     if (!forge.getItems().contains(lump)) {
                         forge.insertItem(lump);
-                        // Bug where item is put on surface when inserted.
                         lump.setParentId(forge.getWurmId(), forge.isOnSurface());
-                        logger.info("Put the " + lump.getName() + " in the forge");
                     }
                     if (!forge.getItems().contains(item)) {
                         forge.insertItem(item);
-                        // Bug where item is put on surface when inserted.
                         item.setParentId(forge.getWurmId(), forge.isOnSurface());
-                        logger.info("Put the " + item.getName() + " in the forge");
                     }
 
                     if (item.getTemperature() < CrafterAIData.targetTemperature) {
-                        logger.info("Waiting for item to heat up.");
                         continue;
                     }
                 }
@@ -566,11 +558,11 @@ public class CrafterAIData extends CreatureAIData {
                         else
                             tool = tools.createMissingItem(toolTemplateId);
                     } catch (NoSuchTemplateException | FailedException e) {
-                        logger.warning("Could not create required improving item (template id - " + toolTemplateId + ").  Reason follows:");
+                        logger.warning("Could not create required improving item (template id - " + toolTemplateId + ").");
                         e.printStackTrace();
                         continue;
                     } catch (NoSpaceException e) {
-                        logger.warning("Could not get hand item for improving.  Reason follows:");
+                        logger.warning("Could not get hand item for improving.");
                         e.printStackTrace();
                         continue;
                     }
@@ -578,9 +570,10 @@ public class CrafterAIData extends CreatureAIData {
 
                 if (tool.isCombine() && tool.isMetal()) {
                     if (tool.getTemperature() >= CrafterAIData.targetTemperature) {
-                        crafter.getInventory().insertItem(tool);
+                        if (!crafter.getInventory().getItems().contains(tool)) {
+                            crafter.getInventory().insertItem(tool);
+                        }
                     } else {
-                        logger.info("Waiting for lump to heat up.");
                         continue;
                     }
                 }
@@ -588,21 +581,9 @@ public class CrafterAIData extends CreatureAIData {
                 capSkills();
 
                 try {
-                    if (!job.isDonation()) {
-                        double skill = -1.0;
-                        try {
-                            Skill requiredSkill = crafter.getSkills().getSkill(MethodsItems.getImproveSkill(item));
-                            skill = requiredSkill.getKnowledge();
-                        } catch (NoSuchSkillException e) {
-                            e.printStackTrace();
-                        }
-                        logger.info("Improving " + item.getName() + " - QL " + item.getQualityLevel() + "/" + job.targetQL + "/" + CrafterMod.getMaxItemQL() + " - Skill " + skill + "/" + workbook.getSkillCap() + "/" + CrafterMod.getSkillCap());
-                    }
-
                     BehaviourDispatcher.action(crafter, crafter.getCommunicator(), tool.getWurmId(), item.getWurmId(), Actions.IMPROVE);
-                    logger.info("Improving " + item.getName() + " with " + tool.getName());
                 } catch (NoSuchPlayerException | NoSuchCreatureException | NoSuchItemException | NoSuchBehaviourException | NoSuchWallException | FailedException e) {
-                    logger.warning(crafter.getName() + " (" + crafter.getWurmId() + ") could not improve " + item.getName() + " (" + item.getWurmId() + ") with " + tool.getName() + " (" + tool.getWurmId() + ").  Reason follows:");
+                    logger.warning(crafter.getName() + " (" + crafter.getWurmId() + ") could not improve " + item.getName() + " (" + item.getWurmId() + ") with " + tool.getName() + " (" + tool.getWurmId() + ").");
                     e.printStackTrace();
                     returnErrorJob(job);
                     continue;
