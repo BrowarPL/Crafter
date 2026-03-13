@@ -8,17 +8,17 @@ import com.wurmonline.shared.exceptions.WurmServerException;
 import mod.wurmunlimited.npcs.CrafterMod;
 
 import java.sql.*;
-import java.time.Clock;
 import java.util.*;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
+@SuppressWarnings("SqlNoDataSourceInspection") // Suppress IDE warnings about missing DB schema
 public class CrafterDatabase {
     private static final Logger logger = Logger.getLogger(CrafterDatabase.class.getName());
     private static String dbString = "";
     private static boolean created = false;
-    public static Clock clock = Clock.systemUTC();
-    private static final Map<Creature, String> tags = new HashMap<>();
-    private static final Map<Creature, Currency> currencies = new HashMap<>();
+
+    // Removed unused fields: clock, tags, currencies
 
     public interface Execute {
         void run(Connection db) throws SQLException;
@@ -31,27 +31,30 @@ public class CrafterDatabase {
     }
 
     private static void init() throws SQLException {
-        try (Connection conn = DriverManager.getConnection(dbString)) {
-            conn.prepareStatement("CREATE TABLE IF NOT EXISTS saved_skills (" +
+        try (Connection conn = DriverManager.getConnection(dbString);
+             Statement stmt1 = conn.createStatement();
+             Statement stmt2 = conn.createStatement()) {
+
+            stmt1.execute("CREATE TABLE IF NOT EXISTS saved_skills (" +
                     "contract_id INTEGER," +
                     "skill_id INTEGER," +
                     "skill_level REAL," +
                     "UNIQUE (contract_id, skill_id) ON CONFLICT REPLACE" +
-                    ");").execute();
+                    ");");
 
-            conn.prepareStatement("CREATE TABLE IF NOT EXISTS donated_tools (" +
+            stmt2.execute("CREATE TABLE IF NOT EXISTS donated_tools (" +
                     "crafter_id INTEGER," +
                     "item_id INTEGER," +
                     "UNIQUE (crafter_id, item_id) ON CONFLICT REPLACE" +
-                    ");").execute();
+                    ");");
         }
 
         created = true;
     }
 
     private static void execute(Execute execute) throws SQLException {
-        int maxRetries = 10;
-        long retryDelayMs = 200L; // 200ms x 10 prób = 2 sekundy całkowitego okna na odblokowanie DB
+        int maxRetries = 15;
+        long retryDelayMs = 300L;
 
         for (int attempt = 1; attempt <= maxRetries; attempt++) {
             Connection db = null;
@@ -66,16 +69,18 @@ public class CrafterDatabase {
                 db = DriverManager.getConnection(dbString);
                 execute.run(db);
 
-                // Jeśli wykonanie doszło do tego miejsca, operacja się powiodła. Przerywamy pętlę.
                 return;
             } catch (SQLException e) {
-                // Jeśli to była ostatnia próba, rzucamy krytyczny błąd wyżej
-                if (attempt == maxRetries) {
-                    logger.severe("CrafterDatabase critical fail after " + maxRetries + " attempts: " + e.getMessage());
+                String msg = e.getMessage().toLowerCase();
+                boolean isLocked = msg.contains("busy") || msg.contains("locked");
+
+                if (!isLocked || attempt == maxRetries) {
+                    if (attempt == maxRetries) {
+                        logger.severe("CrafterDatabase critical fail after " + maxRetries + " attempts: " + e.getMessage());
+                    }
                     throw e;
                 }
 
-                // W przeciwnym razie logujemy informację i czekamy
                 logger.warning("CrafterDatabase locked or busy (attempt " + attempt + "/" + maxRetries + "). Retrying in " + retryDelayMs + "ms... Reason: " + e.getMessage());
                 try {
                     Thread.sleep(retryDelayMs);
@@ -84,14 +89,13 @@ public class CrafterDatabase {
                     throw new SQLException("Thread interrupted while waiting for database retry", ie);
                 }
             } finally {
-                // Zawsze bezpiecznie zamykamy połączenie, by zapobiec wyciekom pamięci
                 try {
                     if (db != null && !db.isClosed()) {
                         db.close();
                     }
                 } catch (SQLException e1) {
-                    logger.warning("Could not close connection to database.");
-                    e1.printStackTrace();
+                    // Replaced printStackTrace with proper logger
+                    logger.log(Level.WARNING, "Could not close connection to database.", e1);
                 }
             }
         }
@@ -102,12 +106,13 @@ public class CrafterDatabase {
         Map<Integer, Double> skills = new HashMap<>();
 
         execute(db -> {
-            PreparedStatement ps = db.prepareStatement("SELECT skill_id, skill_level FROM saved_skills WHERE contract_id=?;");
-            ps.setLong(1, contract.getWurmId());
-            ResultSet rs = ps.executeQuery();
-
-            while (rs.next()) {
-                skills.put(rs.getInt(1), rs.getDouble(2));
+            try (PreparedStatement ps = db.prepareStatement("SELECT skill_id, skill_level FROM saved_skills WHERE contract_id=?;")) {
+                ps.setLong(1, contract.getWurmId());
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        skills.put(rs.getInt(1), rs.getDouble(2));
+                    }
+                }
             }
         });
 
@@ -119,19 +124,20 @@ public class CrafterDatabase {
         try {
             execute(db -> {
                 db.setAutoCommit(false);
-                //noinspection SqlResolve
-                for (Map.Entry<Integer, Skill> entry : crafter.getSkills().getSkillTree().entrySet()) {
-                    PreparedStatement ps = db.prepareStatement("INSERT INTO saved_skills VALUES (?, ?, ?);");
-                    ps.setLong(1, writ.getWurmId());
-                    ps.setInt(2, entry.getKey());
-                    ps.setDouble(3, entry.getValue().getKnowledge());
-                    ps.execute();
+                try (PreparedStatement ps = db.prepareStatement("INSERT INTO saved_skills VALUES (?, ?, ?);")) {
+                    for (Map.Entry<Integer, Skill> entry : crafter.getSkills().getSkillTree().entrySet()) {
+                        ps.setLong(1, writ.getWurmId());
+                        ps.setInt(2, entry.getKey());
+                        ps.setDouble(3, entry.getValue().getKnowledge());
+                        ps.addBatch();
+                    }
+                    ps.executeBatch();
                 }
                 db.commit();
             });
         } catch (SQLException e) {
-            logger.warning("Failed to save skills for " + crafter.getName() + ".");
-            e.printStackTrace();
+            // Replaced printStackTrace with proper logger
+            logger.log(Level.WARNING, "Failed to save skills for " + crafter.getName() + ".", e);
             throw new FailedToSaveSkills();
         }
     }
@@ -141,12 +147,13 @@ public class CrafterDatabase {
         Set<Long> tools = new HashSet<>();
 
         execute(db -> {
-            PreparedStatement ps = db.prepareStatement("SELECT item_id FROM donated_tools WHERE crafter_id=?;");
-            ps.setLong(1, crafter.getWurmId());
-            ResultSet rs = ps.executeQuery();
-
-            while (rs.next()) {
-                tools.add(rs.getLong(1));
+            try (PreparedStatement ps = db.prepareStatement("SELECT item_id FROM donated_tools WHERE crafter_id=?;")) {
+                ps.setLong(1, crafter.getWurmId());
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        tools.add(rs.getLong(1));
+                    }
+                }
             }
         });
 
@@ -156,20 +163,22 @@ public class CrafterDatabase {
     @SuppressWarnings("SqlResolve")
     public static void addGivenToolFor(Creature crafter, Item tool) throws SQLException {
         execute(db -> {
-            PreparedStatement ps = db.prepareStatement("INSERT INTO donated_tools VALUES(?, ?);");
-            ps.setLong(1, crafter.getWurmId());
-            ps.setLong(2, tool.getWurmId());
-            ps.executeUpdate();
+            try (PreparedStatement ps = db.prepareStatement("INSERT INTO donated_tools VALUES(?, ?);")) {
+                ps.setLong(1, crafter.getWurmId());
+                ps.setLong(2, tool.getWurmId());
+                ps.executeUpdate();
+            }
         });
     }
 
     @SuppressWarnings("SqlResolve")
     public static void removeGivenToolFor(Creature crafter, Item tool) throws SQLException {
         execute(db -> {
-            PreparedStatement ps = db.prepareStatement("DELETE FROM donated_tools WHERE crafter_id=? AND item_id=?;");
-            ps.setLong(1, crafter.getWurmId());
-            ps.setLong(2, tool.getWurmId());
-            ps.executeUpdate();
+            try (PreparedStatement ps = db.prepareStatement("DELETE FROM donated_tools WHERE crafter_id=? AND item_id=?;")) {
+                ps.setLong(1, crafter.getWurmId());
+                ps.setLong(2, tool.getWurmId());
+                ps.executeUpdate();
+            }
         });
     }
 }
