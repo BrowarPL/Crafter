@@ -30,12 +30,11 @@ public class Job {
     }
 
     public String toString() {
-        return Joiner.on(",").join(customerId, item.getWurmId(), targetQL, mailWhenDone ? "1" : "0", priceCharged, done ? "1" : "0") + "\n";
+        return Joiner.on(",").join(customerId, item != null ? item.getWurmId() : -10, targetQL, mailWhenDone ? "1" : "0", priceCharged, done ? "1" : "0") + "\n";
     }
 
-    // Is it good practice to a have a separate version like this?
     public static String toString(long customerId, Item item, float targetQL, boolean mailWhenDone, long priceCharged, boolean done) {
-        return Joiner.on(",").join(customerId, item.getWurmId(), targetQL, mailWhenDone ? "1" : "0", priceCharged, done ? "1" : "0") + "\n";
+        return Joiner.on(",").join(customerId, item != null ? item.getWurmId() : -10, targetQL, mailWhenDone ? "1" : "0", priceCharged, done ? "1" : "0") + "\n";
     }
 
     public boolean isDonation() {
@@ -67,8 +66,10 @@ public class Job {
     }
 
     private void mailToCustomer(Item itemToMail) {
-        if (hasBeenMailed && itemToMail == item)
-            logger.warning("Trying to mail when job already done.");
+        if (hasBeenMailed && itemToMail == item) {
+            logger.warning("Trying to mail when job already done. Aborting to prevent duplication.");
+            return;
+        }
         itemToMail.setBusy(false);
         WurmMail mail = new WurmMail(CrafterMod.MAIL_TYPE_CRAFTER, itemToMail.getWurmId(), 1, customerId, 0, System.currentTimeMillis() + TimeConstants.MINUTE_MILLIS, System.currentTimeMillis() + (Servers.isThisATestServer() ? 3600000L : 14515200000L), Servers.localServer.id, false, false);
         WurmMail.addWurmMail(mail);
@@ -83,12 +84,14 @@ public class Job {
     }
 
     public void mailToCustomer() {
-        mailToCustomer(item);
+        if (item != null) {
+            mailToCustomer(item);
+        }
     }
 
     public void refundCustomer() throws NoSuchTemplateException, FailedException {
         // Done Jobs shouldn't be refunded as there is no loss to compensate.
-        if (!done) {
+        if (!done && priceCharged > 0) {
             Item box = ItemFactory.createItem(ItemList.jarPottery, 1, "");
             Item[] coins = Economy.getEconomy().getCoinsFor(priceCharged);
             for (Item coin : coins) {

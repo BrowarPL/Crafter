@@ -18,6 +18,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
@@ -25,9 +26,25 @@ public class WorkBook implements Iterable<Job> {
     private final Logger logger = Logger.getLogger(WorkBook.class.getName());
     private static final int MAX_INSCRIPTION_LENGTH = 500;
     static final String workBookDescription = "Work Book";
+
+    private static final Comparator<Item> PAGE_SORTER = (i1, i2) -> {
+        String d1 = i1.getDescription();
+        String d2 = i2.getDescription();
+        if (d1.equals("Contents")) return -1;
+        if (d2.equals("Contents")) return 1;
+        try {
+            int p1 = Integer.parseInt(d1.replace("Page ", "").trim());
+            int p2 = Integer.parseInt(d2.replace("Page ", "").trim());
+            return Integer.compare(p1, p2);
+        } catch (NumberFormatException e) {
+            return d1.compareTo(d2);
+        }
+    };
+
     @SuppressWarnings("WeakerAccess")
     public final Item workBookItem;
     Item forge;
+    private long savedForgeId = -10;
     private CrafterType crafterType;
     private float skillCap;
     private final List<Job> jobs = new ArrayList<>();
@@ -58,7 +75,7 @@ public class WorkBook implements Iterable<Job> {
             throw new InvalidWorkBookInscription("Work book item does not fit the criteria.");
         this.workBookItem = workBookItem;
 
-        Iterator<Item> pages = workBookItem.getItems().stream().sorted(Comparator.comparing(Item::getDescription)).iterator();
+        Iterator<Item> pages = workBookItem.getItems().stream().sorted(PAGE_SORTER).iterator();
         if (!pages.hasNext())
             throw new InvalidWorkBookInscription("No contents page found.");
 
@@ -86,13 +103,11 @@ public class WorkBook implements Iterable<Job> {
         try {
             long forgeId = Long.parseLong(header[1]);
             if (forgeId != -10) {
+                savedForgeId = forgeId;
                 try {
                     forge = Items.getItem(forgeId);
                 } catch (NoSuchItemException e) {
-                    logger.warning("Could not find forge - " + forgeId + ".  Was it destroyed?  Removing.");
-                    e.printStackTrace();
-                    header[1] = "-10";
-                    rewriteHeader = true;
+                    logger.warning("Could not find forge " + forgeId + " in memory yet. Saving ID to prevent assignment loss.");
                 }
             }
         } catch (NumberFormatException e) {
@@ -168,28 +183,25 @@ public class WorkBook implements Iterable<Job> {
                             addDonation(Items.getItem(Long.parseLong(values[0])), false);
                         } else {
                             addJob(Long.parseLong(values[0]), Items.getItem(Long.parseLong(values[1])), Float.parseFloat(values[2]),
-                                Integer.parseInt(values[3]) == 1, Long.parseLong(values[4]), Integer.parseInt(values[5]) == 1, false);
+                                    Integer.parseInt(values[3]) == 1, Long.parseLong(values[4]), Integer.parseInt(values[5]) == 1, false);
                         }
                     } catch (ArrayIndexOutOfBoundsException | NoSuchItemException | NumberFormatException e) {
-                        logger.warning("Invalid line in workbook - " + line);
-                        // Try to recover owner and item.
+                        logger.log(Level.WARNING, "Invalid or missing item in workbook line - " + line);
                         try {
-                            if (values.length >= 2 && values[0] != null && values[1] != null) {
+                            if (values.length >= 5) {
                                 long customerId = Long.parseLong(values[0]);
-                                long itemId = Long.parseLong(values[1]);
-
-                                // Check ids are correct type as an extra precaution.
-                                if (WurmId.getType(customerId) == 0 && WurmId.getType(itemId) == 2) {
-                                    new Job(customerId, Items.getItem(itemId), 1, false, 0, false).mailToCustomer();
+                                long priceCharged = Long.parseLong(values[4]);
+                                if (WurmId.getType(customerId) == 0 && priceCharged > 0) {
+                                    Job dummyJob = new Job(customerId, null, 1, false, priceCharged, false);
+                                    dummyJob.refundCustomer();
+                                    logger.info("Refunded customer for lost item. Amount: " + priceCharged);
                                 }
-                                logger.warning("Item recovery attempted successfully.  Maybe?");
                             }
-                        } catch (NumberFormatException | NoSuchItemException ignored) {}
-                        // Re-save workbook after loading the rest of the entries.
+                        } catch (Exception ex) {
+                            logger.log(Level.WARNING, "Failed to refund customer for lost item.", ex);
+                        }
                         reSave.set(true);
-                        e.printStackTrace();
                     } catch (WorkBookFull ignored) {}
-                    // Exception should never happen as saveWorkbook is never called this way.
                 }
             }
         });
@@ -281,7 +293,7 @@ public class WorkBook implements Iterable<Job> {
     }
 
     public boolean isForgeAssigned() {
-        return forge != null;
+        return forge != null || savedForgeId != -10;
     }
 
     public boolean isJobItem(Item item) {
@@ -302,11 +314,12 @@ public class WorkBook implements Iterable<Job> {
 
     public void removeJob(Item item) {
         Job job = jobItems.remove(item);
-        jobs.remove(job);
-        try {
-            saveWorkBook();
-        } catch (WorkBookFull ignored) {}
-        // Exception should never happen as removeJob should only be reducing the page count.
+        if (job != null) {
+            jobs.remove(job);
+            try {
+                saveWorkBook();
+            } catch (WorkBookFull ignored) {}
+        }
     }
 
     public void addDonation(Item item) throws WorkBookFull {
@@ -328,7 +341,7 @@ public class WorkBook implements Iterable<Job> {
 
     private void saveWorkBook() throws WorkBookFull {
         try {
-            Iterator<Item> pages = workBookItem.getItems().stream().sorted(Comparator.comparing(Item::getDescription)).iterator();
+            Iterator<Item> pages = workBookItem.getItems().stream().sorted(PAGE_SORTER).iterator();
             Item contentsPage;
             if (!pages.hasNext()) {
                 logger.warning("Contents page missing when saving workbook. Adding a new one.");
@@ -339,10 +352,10 @@ public class WorkBook implements Iterable<Job> {
 
             StringBuilder contentsSb = new StringBuilder();
             contentsSb.append(skillCap).append("\n");
-            contentsSb.append((forge == null ? "-10" : forge.getWurmId())).append("\n");
-            if (restrictedMaterials.size() > 0)
+            contentsSb.append((forge == null ? (savedForgeId != -10 ? savedForgeId : "-10") : forge.getWurmId())).append("\n");
+            if (!restrictedMaterials.isEmpty())
                 contentsSb.append("restrict").append(Joiner.on(",").join(restrictedMaterials)).append("\n");
-            if (blockedItems.size() > 0)
+            if (!blockedItems.isEmpty())
                 contentsSb.append("blocked").append(Joiner.on(",").join(blockedItems)).append("\n");
             contentsSb.append(Joiner.on("\n").join(crafterType.getAllTypes()));
             String contents = contentsSb.toString();
@@ -374,8 +387,7 @@ public class WorkBook implements Iterable<Job> {
 
             pages.forEachRemaining(page -> Items.destroyItem(page.getWurmId()));
         } catch (NoSuchTemplateException | FailedException e) {
-            logger.severe("A server error occurred when creating a new item.  Aborting.");
-            e.printStackTrace();
+            logger.log(Level.SEVERE, "A server error occurred when creating a new item. Aborting.", e);
         }
     }
 
@@ -395,10 +407,14 @@ public class WorkBook implements Iterable<Job> {
             return;
         if (this.forge != forge) {
             this.forge = forge;
+            if (forge != null) {
+                savedForgeId = forge.getWurmId();
+            } else {
+                savedForgeId = -10;
+            }
             try {
                 saveWorkBook();
             } catch (WorkBookFull ignored) {}
-            // Exception should never happen as forge is saved to the contents page.
         }
     }
 
@@ -440,7 +456,6 @@ public class WorkBook implements Iterable<Job> {
                 forKing += forUpkeep;
             else {
                 v.plan.addMoney(forUpkeep);
-                // Using MoneySpent to show how much upkeep is accumulated over time.
                 shop.addMoneySpent(forUpkeep);
             }
         }
@@ -461,7 +476,6 @@ public class WorkBook implements Iterable<Job> {
         try {
             saveWorkBook();
         } catch (WorkBookFull ignored) {}
-        // Exception should never happen as done is a single character for true or false.
     }
 
     public boolean hasEnoughSpaceFor(List<String> lines) {
@@ -481,7 +495,6 @@ public class WorkBook implements Iterable<Job> {
         return false;
     }
 
-    // TODO - Rename, something different as they could be seen as restricted from or restricted to.
     public List<Byte> getRestrictedMaterials() {
         return new ArrayList<>(restrictedMaterials);
     }
@@ -497,7 +510,7 @@ public class WorkBook implements Iterable<Job> {
             if (CrafterMod.isGloballyRestrictedMaterial(b))
                 return true;
         }
-        return restrictedMaterials.size() != 0 && !restrictedMaterials.contains(b);
+        return !restrictedMaterials.isEmpty() && !restrictedMaterials.contains(b);
     }
 
     public List<Integer> getBlockedItems() {
@@ -514,6 +527,6 @@ public class WorkBook implements Iterable<Job> {
         if (CrafterMod.blockedItems.contains(templateId)) {
             return true;
         }
-        return blockedItems.size() != 0 && blockedItems.contains(templateId);
+        return !blockedItems.isEmpty() && blockedItems.contains(templateId);
     }
 }

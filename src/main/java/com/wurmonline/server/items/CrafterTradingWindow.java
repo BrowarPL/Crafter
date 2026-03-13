@@ -46,22 +46,14 @@ public class CrafterTradingWindow extends TradingWindow implements MiscConstants
     }
 
     public static void stopLoggers() {
-        Iterator<Logger> var0 = loggers.values().iterator();
-
-        while(true) {
-            Logger logger;
-            do {
-                if (!var0.hasNext()) {
-                    return;
+        for (Logger personalLogger : loggers.values()) {
+            if (personalLogger != null) {
+                for (Handler h : personalLogger.getHandlers()) {
+                    h.close();
                 }
-
-                logger = var0.next();
-            } while(logger == null);
-
-            for (Handler h : logger.getHandlers()) {
-                h.close();
             }
         }
+        loggers.clear();
     }
 
     private static Logger getLogger(long wurmId) {
@@ -70,18 +62,17 @@ public class CrafterTradingWindow extends TradingWindow implements MiscConstants
         if (personalLogger == null) {
             personalLogger = Logger.getLogger(name);
             personalLogger.setUseParentHandlers(false);
-            Handler[] h = logger.getHandlers();
 
-            for(int i = 0; i != h.length; ++i) {
-                personalLogger.removeHandler(h[i]);
+            for (Handler h : personalLogger.getHandlers()) {
+                personalLogger.removeHandler(h);
             }
 
             try {
                 FileHandler fh = new FileHandler(name + ".log", 0, 1, true);
                 fh.setFormatter(new SimpleFormatter());
                 personalLogger.addHandler(fh);
-            } catch (IOException var6) {
-                Logger.getLogger(name).log(Level.WARNING, name + ":no redirection possible!");
+            } catch (IOException e) {
+                logger.log(Level.WARNING, name + ": no redirection possible!", e);
             }
 
             loggers.put(name, personalLogger);
@@ -167,14 +158,13 @@ public class CrafterTradingWindow extends TradingWindow implements MiscConstants
         if (item.isHollow()) {
             for (Item lElement : item.getItemsAsArray()) {
                 this.removeExistingContainedItems(lElement);
-                if (lElement.getTradeWindow() == this) {
+                if (this.equals(lElement.getTradeWindow())) {
                     this.removeFromTrade(lElement, false);
                 } else if (lElement.getTradeWindow() != null) {
                     lElement.getTradeWindow().removeItem(lElement);
                 }
             }
         }
-
     }
 
     @Override
@@ -189,7 +179,7 @@ public class CrafterTradingWindow extends TradingWindow implements MiscConstants
                 Item[] toAdd = item.getAllItems(false);
 
                 for (Item lElement : toAdd) {
-                    if (lElement.tradeWindow == this) {
+                    if (this.equals(lElement.getTradeWindow())) {
                         toRet.add(lElement);
                     }
                 }
@@ -200,20 +190,12 @@ public class CrafterTradingWindow extends TradingWindow implements MiscConstants
     }
 
     @Override
-    public void stopReceivingItems() {
-    }
-
-    @Override
-    public void startReceivingItems() {
-    }
-
-    @Override
     public void addItem(Item item) {
         if (this.items == null) {
             this.items = new HashSet<>();
         }
 
-        if (item.tradeWindow == null) {
+        if (item.getTradeWindow() == null) {
             this.removeExistingContainedItems(item);
             Item parent = item;
 
@@ -225,21 +207,21 @@ public class CrafterTradingWindow extends TradingWindow implements MiscConstants
             this.addToTrade(item);
             if (item == parent || parent.isViewableBy(this.windowOwner)) {
                 if (!this.windowOwner.isPlayer()) {
-                    this.windowOwner.getCommunicator().sendAddToInventory(item, this.wurmId, parent.tradeWindow == this ? parent.getWurmId() : 0L, 0);
+                    this.windowOwner.getCommunicator().sendAddToInventory(item, this.wurmId, this.equals(parent.getTradeWindow()) ? parent.getWurmId() : 0L, 0);
                 } else if (!this.watcher.isPlayer()) {
-                    this.windowOwner.getCommunicator().sendAddToInventory(item, this.wurmId, parent.tradeWindow == this ? parent.getWurmId() : 0L, this.watcher.getTradeHandler().getTraderBuyPriceForItem(item));
+                    this.windowOwner.getCommunicator().sendAddToInventory(item, this.wurmId, this.equals(parent.getTradeWindow()) ? parent.getWurmId() : 0L, this.watcher.getTradeHandler().getTraderBuyPriceForItem(item));
                 } else {
-                    this.windowOwner.getCommunicator().sendAddToInventory(item, this.wurmId, parent.tradeWindow == this ? parent.getWurmId() : 0L, item.getPrice());
+                    this.windowOwner.getCommunicator().sendAddToInventory(item, this.wurmId, this.equals(parent.getTradeWindow()) ? parent.getWurmId() : 0L, item.getPrice());
                 }
             }
 
             if (item == parent || parent.isViewableBy(this.watcher)) {
                 if (!this.watcher.isPlayer()) {
-                    this.watcher.getCommunicator().sendAddToInventory(item, this.wurmId, parent.tradeWindow == this ? parent.getWurmId() : 0L, 0);
+                    this.watcher.getCommunicator().sendAddToInventory(item, this.wurmId, this.equals(parent.getTradeWindow()) ? parent.getWurmId() : 0L, 0);
                 } else if (!this.windowOwner.isPlayer()) {
-                    this.watcher.getCommunicator().sendAddToInventory(item, this.wurmId, parent.tradeWindow == this ? parent.getWurmId() : 0L, this.windowOwner.getTradeHandler().getTraderSellPriceForItem(item, this));
+                    this.watcher.getCommunicator().sendAddToInventory(item, this.wurmId, this.equals(parent.getTradeWindow()) ? parent.getWurmId() : 0L, this.windowOwner.getTradeHandler().getTraderSellPriceForItem(item, this));
                 } else {
-                    this.watcher.getCommunicator().sendAddToInventory(item, this.wurmId, parent.tradeWindow == this ? parent.getWurmId() : 0L, item.getPrice());
+                    this.watcher.getCommunicator().sendAddToInventory(item, this.wurmId, this.equals(parent.getTradeWindow()) ? parent.getWurmId() : 0L, item.getPrice());
                 }
             }
         }
@@ -248,7 +230,7 @@ public class CrafterTradingWindow extends TradingWindow implements MiscConstants
     }
 
     private void addToTrade(Item item) {
-        if (item.tradeWindow != this) {
+        if (!this.equals(item.getTradeWindow())) {
             item.setTradeWindow(this);
         }
 
@@ -262,28 +244,25 @@ public class CrafterTradingWindow extends TradingWindow implements MiscConstants
         this.watcher.getCommunicator().sendRemoveFromInventory(item, this.wurmId);
         if (noSwap && item.isCoin()) {
             if (item.getOwnerId() == -10L) {
-                //noinspection SpellCheckingInspection
                 Economy.getEconomy().returnCoin(item, "Notrade", true);
             }
         }
         item.setTradeWindow(null);
-
     }
 
     @Override
     public void removeItem(Item item) {
-        if (this.items != null && item.tradeWindow == this) {
+        if (this.items != null && this.equals(item.getTradeWindow())) {
             this.removeExistingContainedItems(item);
             this.items.remove(item);
             this.removeFromTrade(item, true);
             this.tradeChanged();
         }
-
     }
 
     @Override
     public void updateItem(Item item) {
-        if (this.items != null && item.tradeWindow == this) {
+        if (this.items != null && this.equals(item.getTradeWindow())) {
             if (!this.windowOwner.isPlayer()) {
                 this.windowOwner.getCommunicator().sendUpdateInventoryItem(item, this.wurmId, 0);
             } else if (!this.watcher.isPlayer()) {
@@ -302,7 +281,6 @@ public class CrafterTradingWindow extends TradingWindow implements MiscConstants
 
             this.tradeChanged();
         }
-
     }
 
     private void tradeChanged() {
@@ -317,7 +295,6 @@ public class CrafterTradingWindow extends TradingWindow implements MiscConstants
             this.windowOwner.getCommunicator().sendTradeChanged(c);
             this.watcher.getCommunicator().sendTradeChanged(c);
         }
-
     }
 
     @Override
@@ -436,8 +413,7 @@ public class CrafterTradingWindow extends TradingWindow implements MiscConstants
             } catch (WorkBook.NoWorkBookOnWorker e) {
                 windowOwner.getCommunicator().sendAlertServerMessage("The crafter fumbles about for their work book but does not find it.");
                 watcher.getCommunicator().sendAlertServerMessage("The crafter fumbles about for their work book but does not find it.");
-                logger.warning("Could not find work book on crafter " + windowOwner.getName() + "(" + windowOwner.getWurmId() + ") or " + watcher.getName() + "(" + watcher.getWurmId() + ")");
-                e.printStackTrace();
+                logger.log(Level.WARNING, "Could not find work book on crafter " + windowOwner.getName() + "(" + windowOwner.getWurmId() + ") or " + watcher.getName() + "(" + watcher.getWurmId() + ")", e);
                 return;
             }
 
@@ -490,13 +466,12 @@ public class CrafterTradingWindow extends TradingWindow implements MiscConstants
                             } catch (WorkBook.WorkBookFull e) {
                                 // This should never happen because it should be cleared by CrafterTrade.makeTrade().
                                 windowOwner.getCommunicator().sendAlertServerMessage("An error occurred with the order.  Please report.");
-                                logger.warning("Item WurmId(" + item.getWurmId() + ") Price Charged(" + watcher.getTradeHandler().getTraderBuyPriceForItem(item) + (handler.isMailOnDone() ? CrafterMod.mailPrice() : 0) + ") could not be added to Work Book, and player money was still taken.  This should never happen, please report.");
-                                e.printStackTrace();
+                                logger.log(Level.WARNING, "Item WurmId(" + item.getWurmId() + ") Price Charged(" + watcher.getTradeHandler().getTraderBuyPriceForItem(item) + (handler.isMailOnDone() ? CrafterMod.mailPrice() : 0) + ") could not be added to Work Book, and player money was still taken.  This should never happen, please report.", e);
                             }
                             inventory.insertItem(item);
                             getLogger(shop.getWurmId()).log(Level.INFO, this.watcher.getName() + " received " + MaterialUtilities.getMaterialString(item.getMaterial()) + " " + item.getName() + ", id: " + item.getWurmId() + ", QL: " + item.getQualityLevel());
                         }
-                    // Window 3
+                        // Window 3
                     } else {
                         if (!handler.isOptionItem(item)) {
                             if (coin && item.isBanked())
@@ -547,4 +522,3 @@ public class CrafterTradingWindow extends TradingWindow implements MiscConstants
         this.items = null;
     }
 }
-
